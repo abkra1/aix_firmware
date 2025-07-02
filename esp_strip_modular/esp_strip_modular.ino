@@ -42,7 +42,8 @@
 //  pinMode(6, OUTPUT); // INPUT
 //  digitalWrite(13, HIGH); // sets the digital pin 13 on
 //  digitalWrite(13, LOW);  // sets the digital pin 13 off
-
+String hwDeviceType = "AXLEDSTRIP";
+String firmwareVersion = "4.0";
 
 
 // Declare our NeoPixel strip object:
@@ -711,7 +712,7 @@ void setGlobals () {
   //printf("setGlobals: html done reading: %s\n", getTimestring());
   //Serial.print(line);
   
-  String  httpRequest = String("GET /axledstrip/") + wifiData->getWifiDeviceId() + String("/params.sh HTTP/1.1\r\n") +
+  String  httpRequest = String("GET /params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
                String("Host: ") + getter->GetRealIP() + String("\r\n") + 
                String("Authorization: Basic ") + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
 
@@ -813,7 +814,7 @@ void setup() {
   
   // if we have a problem, give me 5 secs to interrupt on startup
   printf("\n---------------------------------------------------------------\n");
-  printf("        Version 3.3 \n");
+  printf("        Version %s \n", firmwareVersion);
   printf("---------------------------------------------------------------\n");
   Serial.flush();
   printf("setup\n");
@@ -890,7 +891,7 @@ void loop() {
      // create nec config instance and
      // open access point
      ConfigData* confData = new ConfigData();
-     WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDdeviceID);
+     WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDdeviceID, hwDeviceType);
      configServer->runAcessPoint(); // this does not return
   }
   else {

@@ -23,6 +23,7 @@
 static ESP8266WebServer* server;
 static ConfigData*       wifiData;
 static String            hardwareDevice;
+static String            deviceType;
 
 // -----------------------------
 
@@ -31,24 +32,23 @@ class WifiConfigWebserver {
 
 
   public: 
-    WifiConfigWebserver (ConfigData* configData, String newHwDevice)
+    WifiConfigWebserver (ConfigData* configData, String newHwDevice, String newDeviceType)
     {
       wifiData = configData;
       hardwareDevice = newHwDevice;
+      deviceType = newDeviceType;
     }
-    
-    
-    
+        
     // really start the acess point and give over the handling
     // this will not return
     void runAcessPoint ()
     {
       Serial.print("WIFI name: ");
-      Serial.println("AXclock passw: 12345678");
+      Serial.println("AIX-Gadged passw: 12345678");
       WiFi.mode(WIFI_AP);
       // WiFi.softAP(APssid, APpassword);
       // need at least8 chars in PW !!!
-      boolean result = WiFi.softAP("AXclock", "12345678");
+      boolean result = WiFi.softAP("AIX-Gadged (PW:12345678)", "12345678");
     
       // Serial.println(WiFi.softAP("axel","axel") ? "AP Ready" : "AP Failed!");
       Serial.print("Soft-AP IP address = ");
@@ -98,7 +98,7 @@ class WifiConfigWebserver {
     {
         String theValue;
         if (!reply) {
-          theValue = String("<!DOCTYPE html><html><body><h2>AX-Clock: HW-ID-") + hardwareDevice +String("<h2><h3> Wifi Credentials</h3>")
+          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: AXLEDSTRIP, HW-ID-") + hardwareDevice +String("<h2><h3>Settings and Wifi Credentials</h3>")
                         + String("<form action='/action_page'>")
                         + String("SSID:<br><input type='text' name='SSID' value='") + wifiData->getWifiSid() + String("'><br>")
                         + String("PassPhrase:<br><input type='text' name='PassPhrase' value='") + wifiData->getWifiPassword() + String("'><br><br>")
@@ -112,7 +112,7 @@ class WifiConfigWebserver {
                         + String("</body></html>"); 
         }
         else {
-          theValue = String("<!DOCTYPE html><html><body><h2>AX-Clock: HW-ID-") + hardwareDevice +String("<h2><h3> Wifi Credentials</h3>")
+          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: AXLEDSTRIP, HW-ID-") + hardwareDevice +String("<h2><h3>Settings and  Wifi Credentials</h3>")
                         + String("<b>Saved values<b><br>")
                         + String("SSID: ") + wifiData->getWifiSid() + String("<br>")
                         + String("PassPhrase: ") + wifiData->getWifiPassword() + String("<br>")

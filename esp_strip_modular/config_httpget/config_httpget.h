@@ -57,12 +57,12 @@ class WifiGetter
     //   execute the passed request and return the reply
     //     bool false on error
 
-    bool sendHttpRequest(String htmlRequest, String& htmlReply, bool refreshAbkra) {
+    bool sendHttpRequest(String htmlRequest, String& htmlReply, bool refreshRedirect) {
     
       connect();
     
-      if (refreshAbkra) {
-        if (!getIPViaAbkra()) {
+      if (refreshRedirect) {
+        if (!getIPViaRedirectHost()) {
 	  return false;
 	}
       } else {
@@ -70,7 +70,7 @@ class WifiGetter
       }
     
       WiFiClientSecure client;
-      client.setInsecure(); // we have insecure certs here
+      client.setInsecure(); // we have insecure certs here (own certs so server validation will fail)
     
       printf("try connect to: %s\n",host.c_str());
       if (!client.connect(host.c_str(), port)) {
@@ -85,13 +85,9 @@ class WifiGetter
       String line;
       char nextChar = 0;
       //printf("setGlobals: html read: %s\n", getTimestring());
-      // while(client.available() && (nextChar < 254)){
       while(client.available() && (nextChar < 254)){
         nextChar = client.read();
-        //if (nextChar < 254) {
-          //printf("%c",nextChar); 
           line += String(nextChar);
-        //}
 	delay(1);
       }
 
@@ -99,6 +95,7 @@ class WifiGetter
       delete wifiData;
  
       // cleanup html quotes
+      // TODO: use a real quoting function
       line.replace("%3A",":");
       line.replace("%21","!");
       line.replace("%20"," ");
@@ -123,13 +120,13 @@ class WifiGetter
     String GetRealIP() {
        String ipStr = ip.toString();
        // it takes some time to fill this struct
+       // just do a wait loop
        if (ipStr == String("(IP unset)")) {
           printf("wait and retry to get IP\n");
 	  connect();
 	  delay (5000);
 	  ipStr = ip.toString();
        }
-       // return WiFi.localIP().toString();
        return ip.toString();
     }
 
@@ -173,34 +170,32 @@ class WifiGetter
 
   
     //
-    //   ask abkra.de for the real IP to connect to
+    //   ask the redirect host for the real IP to connect to
     //   returns false on error
   
-    bool getIPViaAbkra() {
+    bool getIPViaRedirectHost() {
+    
       // I think we can omit this in later builds
-      
+      // TODO: delete       
       if (ssid == "noldor") {
         host = "192.168.93.13";
 	port = 443;
-        //newHost = host;
-        //newPort = port;
         return true;
       }
   
-      WiFiClientSecure abkraClient;
-      abkraClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
+      WiFiClientSecure redirectClient;
+      redirectClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
       String myHost = redirectHost;
-      printf("abkra myhost: %s\n",myHost.c_str());
-      if (!abkraClient.connect(myHost.c_str(), redirectPort)) {
-        String message = String("abkra connection to ") + myHost + String(" : ") + String(redirectPort) + String(" failed");
+      printf("redirect myhost: %s\n",myHost.c_str());
+      if (!redirectClient.connect(myHost.c_str(), redirectPort)) {
+        String message = String("redirect connection to ") + myHost + String(" : ") + String(redirectPort) + String(" failed");
 	Serial.println(message.c_str());
         return false;
       }
   
       // This will send the request to the server
-      //abkraClient.print(String("GET ") + String(redirectPage) + String(" HTTP/1.1\r\nHost: ")+ myHost + String("\r\nConnection: close\r\n\r\n"));
       String req = String("GET ") + String(redirectPage) + String(" HTTP/1.1\r\nHost: ")+ myHost + String("\r\nConnection: close\r\n\r\n");
-      abkraClient.print(req);
+      redirectClient.print(req);
       
 
       delay(2000);
@@ -211,17 +206,9 @@ class WifiGetter
       //printf("html read: ");
       //Serial.println(client.status());
       //printf("\n");
-      // while(abkraClient.available() && (nextChar < 254)){
       while(inRead){
-        if (abkraClient.available()) {
-	/*
-          nextChar = abkraClient.read();
-          if (nextChar < 254) {
-            //printf("%c",nextChar); 
-            line += String(nextChar);
-          }
-	  */
-	  String lineChunk = abkraClient.readStringUntil('\n');
+        if (redirectClient.available()) {
+	  String lineChunk = redirectClient.readStringUntil('\n');
 	  line += lineChunk;
 	}
 	else {
@@ -241,37 +228,24 @@ class WifiGetter
 	}
       }
       
-      printf("abkra reply: %s\n",line.c_str());
+      printf("redirect reply: %s\n",line.c_str());
   
-      abkraClient.stop();
+      redirectClient.stop();
   
       String newIP;
       //printf("\n");
       if (line.length() > 100) {
-      
+        // make this configurable .... naaa just create an own redirect page      
         String myHost = parseHtml(line,String("thehost"),String(""));
         String myPort = parseHtml(line,String("theport"),String("443"));
 	
 	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
 	    port = atoi(myPort.c_str());
 	    host = myHost;
-	    //newHost = host;
-	    //newPort = port;
 	    return true;
 	} 
-      
-      /*  old code for parsing the href link
-        String ref = parseHtml(line,String("td"),"<a href=\"https://88.152.251.180\">Heimat</a>");
-        int posStart = ref.indexOf("https");
-        int posEnd = ref.indexOf("Heimat");
-        if ((posStart > 0) && (posEnd-2 > posStart+8)) {
-          newIP = ref.substring(posStart+8,posEnd-2);
-          printf("realIP: %s\n",newIP.c_str());
-          return newIP;
-        }
-	*/
       }
-      Serial.println("abkra getting IP failed");
+      Serial.println("redirect getting IP failed");
       return false;
     }
 
