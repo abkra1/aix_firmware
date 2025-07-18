@@ -159,7 +159,6 @@ class LedClock {
       //printf("rh: %d rm: %d rs: %d\n",hour, minute, second);
       //printf("h: %d m: %d s: %d\n",hour12, minute60, second60);
 
-
       // all dark
       // strip.clear(); 
       size_t pix;
@@ -277,7 +276,6 @@ class LedClock {
     float factor;
     int timeZone;
 };
-
 
 
 class Twincle {
@@ -773,7 +771,7 @@ void setGlobals () {
         if ((sec >= 0) && (sec < 3)) {
           showSecs = sec;
         }
-        printf("setting show seconds offset to %d\n",showSecs);
+        printf("setting show seconds to %d\n",showSecs);
       }
       if (newTimezone != oldTimezone) {
         oldTimezone = newTimezone;
@@ -912,6 +910,8 @@ void loop() {
   }
   else {
     setGlobals();
+    // take whatever the server said
+    strip.setBrightness(brightness); 
 
     if (mode == "RUNNER") {
         //  intro done
@@ -981,7 +981,8 @@ void loop() {
         printf("start ledClock\n");
         // clock
         //  1: number LEDs to use
-        //  2: seconds leave trace
+        //  2: timezone offset
+        //  3: seconds leave trace
         LedClock ledClock(numLeds, timezone, showSecs);
         startNow = false;
         while (loops < 1000000) {
@@ -991,13 +992,14 @@ void loop() {
           loops++;
           if ((loops % 6000) == 0) {
             setGlobals();
-            if (strip.getBrightness() != brightness) {              
+            if (strip.getBrightness() != brightness) {      
               strip.setBrightness(brightness); 
-            }
+            }           
             if ((mode != "CLOCK" ) || (timezone != oldTimezone.toInt())) {
               return;
             }
           }
+        
         }
     }     
     else if (mode == "TWINCLE") {
@@ -1012,8 +1014,8 @@ void loop() {
           // wait 1/10 sec
           delay(2*delayMs);
           twincle.Next(strip);
-          loops++;
-          if ((loops % 600) == 0) {
+          loops++;      
+          if ((loops % 6000) == 0) {
             setGlobals();
             if (strip.getBrightness() != brightness) {              
               strip.setBrightness(brightness); 
