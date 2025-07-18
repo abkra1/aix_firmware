@@ -175,10 +175,11 @@ class LedClock {
         else if ((pix == minute60) || (pix == GetPrev(minute60)) || (pix == GetNext(minute60))) {
           blue = 200;
         }
+        // the one bright dot, draw when mode != 0
         else if ((circleMode != 0) && (pix == second60)) {
           red = 200;
         }
-        // now check for seconds "ring"
+        // now check for seconds "ring/line" draw only in mode 2
         else if (circleMode == 2) {
           if (lightBefore) {
             if (pix < second60) {
