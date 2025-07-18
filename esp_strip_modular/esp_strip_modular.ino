@@ -617,7 +617,7 @@ String hardwareDdeviceID ="empty";
 //
 //  globals definition
 //
-//   what to startup
+//   whatever defaults we have ....
 //
 String mode = "CLOCK";
 String oldMode = "x";
@@ -626,7 +626,7 @@ String oldWheels = "x";
 String oldBrightness = "x";
 String oldTimezone = "x";
 String oldShowSecs = "x";
-
+// set something save
 bool startNow = true;
 size_t numberWheels = 4;
 size_t brightness = 200;
@@ -693,6 +693,10 @@ bool connect() {
 }
 */
 
+// 
+//   this si the init call 
+//
+
 void setGlobals () {
   
   // we will move this later ... just somewhere else
@@ -706,7 +710,8 @@ void setGlobals () {
                               wifiData->getWifiPassword(), 
                               wifiData->getValue("redirectwebserver"), 
                               wifiData->getValue("redirectwebserverport").toInt(), 
-                              wifiData->getValue("redirectwebserverpage"));
+                              wifiData->getValue("redirectwebserverpage"),
+                              wifiData->getValue("redirectwebserversecret"));
   }
   
   //printf("setGlobals: html done reading: %s\n", getTimestring());
@@ -777,12 +782,22 @@ void setGlobals () {
         }
         printf("setting summer/wintertime offset to %d\n",timezone);
       }
+      digitalWrite(ERROR_PIN,LOW);
     }    
     else {
       printf("reply too short, retry\n");
+      digitalWrite(ERROR_PIN,HIGH);
+      // initial call failed ... start blinking
+      if (oldMode == "x") {
+        for (int loops = 0; loops < 10; loops++) {
+          delay(200);
+          digitalWrite(ERROR_PIN,LOW);
+          delay(200);
+          digitalWrite(ERROR_PIN,HIGH);
+        }
+      }
     }
     refreshProxy = false;
-    digitalWrite(ERROR_PIN,LOW);
   }
   else {
     printf("failed, full refresh initiated\n");

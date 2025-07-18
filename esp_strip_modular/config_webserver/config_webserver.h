@@ -50,7 +50,7 @@ class WifiConfigWebserver {
       // need at least8 chars in PW !!!
       boolean result = WiFi.softAP("AIX-Gadged (PW:12345678)", "12345678");
     
-      // Serial.println(WiFi.softAP("axel","axel") ? "AP Ready" : "AP Failed!");
+      // Serial.println(WiFi.softAP("aix","aix") ? "AP Ready" : "AP Failed!");
       Serial.print("Soft-AP IP address = ");
       Serial.println(WiFi.softAPIP());
     #if 0
@@ -96,6 +96,10 @@ class WifiConfigWebserver {
     //
     static String makeHTMLPage(bool reply)
     {
+    
+    
+        // there are nicer ways to define this ....
+        // I wanted to avoid having to embed a template, well this is not better but it gets the job done
         String theValue;
         if (!reply) {
           theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: AXLEDSTRIP, HW-ID-") + hardwareDevice +String("<h2><h3>Settings and Wifi Credentials</h3>")

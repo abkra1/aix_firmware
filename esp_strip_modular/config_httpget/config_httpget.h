@@ -18,7 +18,7 @@ class WifiGetter
 
   public:
 
-    WifiGetter(String newSid, String newPassword, String redirectHostIn, int redirectPortIn, String redirectPageIn) {
+    WifiGetter(String newSid, String newPassword, String redirectHostIn, int redirectPortIn, String redirectPageIn, String redirectSecretIn) {
    
       ssid = newSid;
       password = newPassword;
@@ -30,11 +30,12 @@ class WifiGetter
       redirectHost = redirectHostIn;
       redirectPort = redirectPortIn;
       redirectPage = redirectPageIn;
+      redirectSecret = redirectSecretIn;
       
     }
    
    
-    // simple call to extract all between two http tags
+    // simple call to extract all between two xml tags
     //   does not really need an instance
     String parseHtml(String reply, String tag, String def) {
       String tagStart = String("<"+tag+">");
@@ -123,9 +124,9 @@ class WifiGetter
        // just do a wait loop
        if (ipStr == String("(IP unset)")) {
           printf("wait and retry to get IP\n");
-	  connect();
-	  delay (5000);
-	  ipStr = ip.toString();
+	      connect();
+	      delay (5000);
+	      ipStr = ip.toString();
        }
        return ip.toString();
     }
@@ -179,24 +180,32 @@ class WifiGetter
       // TODO: delete       
       if (ssid == "noldor") {
         host = "192.168.93.13";
-	port = 443;
+	    port = 443;
         return true;
       }
   
       WiFiClientSecure redirectClient;
       redirectClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
       String myHost = redirectHost;
-      printf("redirect myhost: %s\n",myHost.c_str());
+      String mySecret = redirectSecret;
+      printf("redirect host: %s\n",myHost.c_str());
       if (!redirectClient.connect(myHost.c_str(), redirectPort)) {
         String message = String("redirect connection to ") + myHost + String(" : ") + String(redirectPort) + String(" failed");
-	Serial.println(message.c_str());
+	    Serial.println(message.c_str());
         return false;
       }
   
       // This will send the request to the server
-      String req = String("GET ") + String(redirectPage) + String(" HTTP/1.1\r\nHost: ")+ myHost + String("\r\nConnection: close\r\n\r\n");
-      redirectClient.print(req);
+      // and use the redirect secret
+      String req = String("GET /") + String(redirectPage) + String(" HTTP/1.1\r\n") 
+                   + String("Host: ") + myHost + String("\r\n")
+                  // + String("Authorization: Basic ") + mySecret + String("\r\n")
+                   + String("Connection: close\r\n\r\n");
       
+      printf("redirect request: %s\n",req.c_str());
+
+      // send it
+      redirectClient.print(req);
 
       delay(2000);
       bool inRead = true;
@@ -206,27 +215,29 @@ class WifiGetter
       //printf("html read: ");
       //Serial.println(client.status());
       //printf("\n");
+      
       while(inRead){
         if (redirectClient.available()) {
-	  String lineChunk = redirectClient.readStringUntil('\n');
-	  line += lineChunk;
-	}
-	else {
-	  // wait a little and see what happens
-	  delay (10);
-	  loops++;
-	  if (loops > 10000) {
-	     // 10 secs is max
-	     inRead = false;
-	     printf("waiting a little \n");
-	  }
-	}
-	// maybe the document has been read by now  
-	if (line.indexOf("</html>") != -1) {
-	  inRead = false;
-	  printf("doc has been read \n");
-	}
+	      String lineChunk = redirectClient.readStringUntil('\n');
+	      line += lineChunk;
+	    }
+	    else {
+	      // wait a little and see what happens
+	      delay (10);
+	      loops++;
+	      if (loops > 10000) {
+	        // 10 secs is max
+	        inRead = false;
+	        printf("waiting a little \n");
+	      }
+	    }
+	    // maybe the document has been read by now  
+	    if (line.indexOf("</html>") != -1) {
+	      inRead = false;
+	      printf("redirect has been read \n");
+	    }
       }
+      
       
       printf("redirect reply: %s\n",line.c_str());
   
@@ -236,14 +247,14 @@ class WifiGetter
       //printf("\n");
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
-        String myHost = parseHtml(line,String("thehost"),String(""));
-        String myPort = parseHtml(line,String("theport"),String("443"));
+        String myHost = parseHtml(line,String("aixhost"),String(""));
+        String myPort = parseHtml(line,String("aixport"),String("443"));
 	
-	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
-	    port = atoi(myPort.c_str());
-	    host = myHost;
-	    return true;
-	} 
+	    if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
+	      port = atoi(myPort.c_str());
+	      host = myHost;
+	      return true;
+	    } 
       }
       Serial.println("redirect getting IP failed");
       return false;
@@ -262,6 +273,7 @@ class WifiGetter
     String redirectHost;
     int redirectPort;
     String redirectPage;
+    String redirectSecret;
 
 };
 
