@@ -611,7 +611,7 @@ class WheelOfFortune {
 bool refreshProxy = true;
 WifiGetter* getter = NULL;
 String deviceID = "empty";
-String hardwareDdeviceID ="empty";
+String hardwareDeviceID ="empty";
 
 //
 //  globals definition
@@ -822,14 +822,16 @@ void setup() {
   for (int i=0; i < UniqueIDbuffer; i++) {
     int buff = uniqueId.id[i];
      idStr += String(buff) + " "; 
-     hardwareDdeviceID = String(buff); // let us hope this is "sufficiently unique"
+     hardwareDeviceID = String(buff); // let us hope this is "sufficiently unique"
   }
 
   
   // if we have a problem, give me 5 secs to interrupt on startup
   printf("\n---------------------------------------------------------------\n");
-  printf("        Version %s \n", firmwareVersion);
-  printf("---------------------------------------------------------------\n");
+  printf("        Version %s \n", firmwareVersion.c_str());
+  printf("        Id %s\n",idStr.c_str());
+  printf("        HardwareId %s\n",hardwareDeviceID.c_str());
+    printf("---------------------------------------------------------------\n");
   Serial.flush();
   printf("setup\n");
 
@@ -905,7 +907,7 @@ void loop() {
      // create nec config instance and
      // open access point
      ConfigData* confData = new ConfigData();
-     WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDdeviceID, hwDeviceType);
+     WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDeviceID, hwDeviceType);
      configServer->runAcessPoint(); // this does not return
   }
   else {

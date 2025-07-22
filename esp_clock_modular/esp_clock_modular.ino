@@ -686,8 +686,8 @@ class FlashAlert {
 //
 
 // config page
-String clockVersion = "4.03";
-
+String hwDeviceType = "AXLEDSTRIP";
+String firmwareVersion = "4.0";
 
 //
 //   WIFI shit ... we make it global
@@ -702,7 +702,8 @@ String clockVersion = "4.03";
 //IPAddress subnet(255,255,255,0);
 bool refreshProxy = true;
 WifiGetter* getter = NULL;
-String hardwareDdeviceID ="empty";
+String hardwareDeviceID ="empty";
+
 
 //
 //  globals definition
@@ -743,7 +744,8 @@ void setGlobals () {
                               wifiData->getWifiPassword(), 
                               wifiData->getValue("redirectwebserver"), 
                               wifiData->getValue("redirectwebserverport").toInt(), 
-                              wifiData->getValue("redirectwebserverpage"));
+                              wifiData->getValue("redirectwebserverpage"),
+                              wifiData->getValue("redirectwebserversecret"));
   }
    
 
@@ -752,12 +754,9 @@ void setGlobals () {
   // 
 
   // This will send the request to the server
-
-  //String  httpRequest = String("GET /axclock/params.sh?device_id=") + wifiData->getWifiDeviceId() + String(" HTTP/1.1\r\n") +
-  String  httpRequest = String("GET /axclock/params_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
+  String  httpRequest = String("GET /params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
                String("Host: ") + getter->GetRealIP() + String("\r\n") + 
                String("Authorization: Basic ") + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
-  // YmxpbmRlcjpHaWJIZXI=
   
   String line;
   if (getter->sendHttpRequest(httpRequest, line, refreshProxy)) {
@@ -923,13 +922,13 @@ void setup() {
   for (int i=0; i < UniqueIDbuffer; i++) {
     int buff = uniqueId.id[i];
      idStr += String(buff) + " "; 
-     hardwareDdeviceID = String(buff); // let us hope this is "sufficiently unique"
+     hardwareDeviceID = String(buff); // let us hope this is "sufficiently unique"
   }
   
   printf("\n---------------------------------------------------------------\n");
-  printf("        Version %s\n",clockVersion.c_str());
+  printf("        Version %s\n",firmwareVersion.c_str());
   printf("        Id %s\n",idStr.c_str());
-  printf("        HardwareId %s\n",hardwareDdeviceID.c_str());
+  printf("        HardwareId %s\n",hardwareDeviceID.c_str());
   printf("---------------------------------------------------------------\n");
   Serial.flush();
   printf("setup\n");
@@ -1010,7 +1009,7 @@ void loop() {
      // create nec config instance and
      // open access point
      ConfigData* confData = new ConfigData();
-     WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDdeviceID);
+     WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDeviceID, hwDeviceType);
      configServer->runAcessPoint(); // this does not return
   }
   else {

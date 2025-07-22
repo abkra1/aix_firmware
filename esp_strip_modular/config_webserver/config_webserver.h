@@ -110,8 +110,13 @@ class WifiConfigWebserver {
                         + String("Redirect Webserver:<br><input type='text' name='RedirectWebserver' value='") + wifiData->getValue("redirectwebserver") + String("'><br><br>")
                         + String("Redirect Webserver Port:<br><input type='text' name='RedirectWebserverPort' value='") + wifiData->getValue("redirectwebserverport") + String("'><br><br>")
                         + String("Redirect Webserver Page:<br><input type='text' name='RedirectWebserverPage' value='") + wifiData->getValue("redirectwebserverpage") + String("'><br><br>")
-                        + String("Redirect Webserver Secret:<br><input type='text' name='RedirectWebserverSecret' value='") + wifiData->getValue("redirectwebserversecret") + String("'><br><br>")
-                        + String("NumLeds:<br><input type='text' name='NumLeds' value='") + wifiData->getValue("numleds") + String("'><br><br>")
+                        + String("Redirect Webserver Secret:<br><input type='text' name='RedirectWebserverSecret' value='") + wifiData->getValue("redirectwebserversecret") + String("'><br><br>");
+                        
+                        // special value for this gadged
+          theValue = theValue              
+                        + String("NumLeds:<br><input type='text' name='NumLeds' value='") + wifiData->getValue("numleds") + String("'><br><br>");
+                        
+          theValue = theValue               
                         + String("<input type='submit' value='Submit'></form>")
                         + String("</body></html>"); 
         }
@@ -124,10 +129,16 @@ class WifiConfigWebserver {
                         + String("Redirect Webserver: ") + wifiData->getValue("redirectwebserver") + String("<br><br>")
                         + String("Redirect Webserver Port: ") + wifiData->getValue("redirectwebserverport") + String("<br><br>")
                         + String("Redirect Webserver Page: ") + wifiData->getValue("redirectwebserverpage") + String("<br><br>")
-                        + String("Redirect Webserver Secret: ") + wifiData->getValue("redirectwebserversecret") + String("<br><br>")
-                        + String("NumLeds: ") + wifiData->getValue("numleds") + String("<br><br>")
-			+ String("<a href='/'>Edit Mode</a><br><br>")
-			// + String("<a href='/restart'>Restart</a>")
+                        + String("Redirect Webserver Secret: ") + wifiData->getValue("redirectwebserversecret") + String("<br><br>");
+                        
+                        
+          // adding the special setting for this page              
+          theValue = theValue              
+                        + String("NumLeds: ") + wifiData->getValue("numleds") + String("<br><br>");
+			
+            
+          theValue = theValue 
+                        + String("<a href='/'>Edit Mode</a><br><br>")
                         + String("</body></html>"); 
         }
         return theValue;
@@ -156,10 +167,7 @@ class WifiConfigWebserver {
      String myRedirectWebserverPort = server->arg("RedirectWebserverPort"); 
      String myRedirectWebserverPage = server->arg("RedirectWebserverPage"); 
      String myRedirectWebserverSecret = server->arg("RedirectWebserverSecret"); 
-     
-     
-     String myNumLeds = server->arg("NumLeds"); 
-    
+         
      Serial.print("mySSID:");
      Serial.println(mySSID);
     
@@ -176,8 +184,10 @@ class WifiConfigWebserver {
      wifiData->setValue("redirectwebserverpage", myRedirectWebserverPage);
      wifiData->setValue("redirectwebserversecret", myRedirectWebserverSecret);
      
-     
+     // special definition for the strip
+     String myNumLeds = server->arg("NumLeds"); 
      wifiData->setValue("numleds", myNumLeds);
+        
         
      String s = makeHTMLPage(true);
      server->send(200, "text/html", s); //Send web page
