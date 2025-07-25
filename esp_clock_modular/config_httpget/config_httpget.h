@@ -58,7 +58,7 @@ class WifiGetter
     //   execute the passed request and return the reply
     //     bool false on error
 
-    bool sendHttpRequest(String htmlRequest, String& htmlReply, bool refreshRedirect) {
+    bool sendHttpGetRequest(String htmlRequest, String& htmlReply, bool refreshRedirect) {
     
       connect();
     
@@ -80,7 +80,12 @@ class WifiGetter
         return false;
       }
 
-      client.print(htmlRequest);
+      
+      String realRequest = String("GET ") + path + htmlRequest;
+      realRequest.replace("//","/");
+      realRequest.replace("//","/");
+      printf("http getter : '%s'", realRequest.c_str());
+      client.print(realRequest);
       
       delay(5000);
       String line;
@@ -181,6 +186,7 @@ class WifiGetter
       if (ssid == "noldor") {
         host = "192.168.93.13";
 	    port = 443;
+	    path = "";
         return true;
       }
   
@@ -202,9 +208,13 @@ class WifiGetter
                   // + String("Authorization: Basic ") + mySecret + String("\r\n")
                    + String("Connection: close\r\n\r\n");
       
+      // send it
+      // attention the webserver is very allergic against double slashes (//)
+      req.replace("//","/");
+      req.replace("//","/");
+      
       printf("redirect request: %s\n",req.c_str());
 
-      // send it
       redirectClient.print(req);
 
       delay(2000);
@@ -247,14 +257,41 @@ class WifiGetter
       //printf("\n");
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
-        String myHost = parseHtml(line,String("aixhost"),String(""));
-        String myPort = parseHtml(line,String("aixport"),String("443"));
-	
+        String myUrl = parseHtml(line,String("aixurl"),redirectHost + String(redirectPort));
+        int colon = myUrl.indexOf(":");
+        int slash = myUrl.indexOf("/");
+        String myHost = myUrl;  // default, only new IP/name
+        String myPort = "443";  // default https
+        String myPath = "";     // default ""
+        
+        // no port but a path
+        if ((colon == -1) && (slash != -1)) {
+            myHost = myUrl.substring(0,slash);
+            myPath = myUrl.substring(slash);
+        }
+        else 
+        // no path but colon
+        if ((colon != -1) && (slash == -1)) {
+            myHost = myUrl.substring(0,colon);
+            myPort = myUrl.substring(colon+1);
+        }
+        else {
+        // all given
+            myHost = myUrl.substring(0,colon);
+            myPort = myUrl.substring(colon+1,slash);        
+            myPath = myUrl.substring(slash);        
+        }
+        // port given
+        
+        printf("redirect extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
+        
 	    if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
-	      port = atoi(myPort.c_str());
-	      host = myHost;
-	      return true;
-	    } 
+	        port = atoi(myPort.c_str());
+	        host = myHost;
+            path = myPath;            
+	        return true;
+	    }
+         
       }
       Serial.println("redirect getting IP failed");
       return false;
@@ -266,7 +303,10 @@ class WifiGetter
     
     String ssid;
     String password;
+    // forwarder address
+    // format "https://<host>:<port>/<path/......"
     String host;
+    String path;
     int port;
     IPAddress ip;
     

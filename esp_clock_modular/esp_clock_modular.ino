@@ -686,20 +686,17 @@ class FlashAlert {
 //
 
 // config page
-String hwDeviceType = "AXLEDSTRIP";
-String firmwareVersion = "4.0";
+String hwDeviceType = "AXCLOCK";
+String firmwareVersion = "5.1";
 
 //
-//   WIFI shit ... we make it global
+//   WIFI stuff ... we make it global
 //
 //
 //   another part of spaghetti code 
 //    wifi config mode
 //
 
-//IPAddress local_IP(192,168,0,1);
-//IPAddress gateway(192,168,0,1);
-//IPAddress subnet(255,255,255,0);
 bool refreshProxy = true;
 WifiGetter* getter = NULL;
 String hardwareDeviceID ="empty";
@@ -754,12 +751,12 @@ void setGlobals () {
   // 
 
   // This will send the request to the server
-  String  httpRequest = String("GET /params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
+  String  httpGetRequest = String("/params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
                String("Host: ") + getter->GetRealIP() + String("\r\n") + 
                String("Authorization: Basic ") + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
   
   String line;
-  if (getter->sendHttpRequest(httpRequest, line, refreshProxy)) {
+  if (getter->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
 /*
     printf("-------------------\n");
     printf("request:\n%s\n", httpRequest.c_str());
@@ -881,13 +878,22 @@ void setGlobals () {
         //mode = "MESSAGE";
       }    
       printf("reply parsed\n  Timezone: %s\n   alert:   %s\n", oldTimezone.c_str(), oldAlert.c_str());
-      
+      digitalWrite(ERROR_PIN,LOW);
     }
     else {
-      printf("reply too short, retry\n");
+      printf("reply too short, retry\n\n%s",line.c_str());
+      digitalWrite(ERROR_PIN,HIGH);
+      // initial call failed ... start blinking
+      if (oldMode == "x") {
+        for (int loops = 0; loops < 10; loops++) {
+          delay(200);
+          digitalWrite(ERROR_PIN,LOW);
+          delay(200);
+          digitalWrite(ERROR_PIN,HIGH);
+        }
+      }
     }
     refreshProxy = false;
-    digitalWrite(ERROR_PIN,LOW);
   }
   else {
     printf("failed, full refresh initiated\n");
@@ -989,7 +995,7 @@ void loop() {
      }
      else {
        matrix.setTextColor(matrix.Color(Colors[COL_WHITE][COL_R], Colors[COL_WHITE][COL_G], Colors[COL_WHITE][COL_B]));
-       String initStr = "id: " + wifiData->getWifiDeviceId();
+       String initStr = ":" + wifiData->getWifiDeviceId();
        matrix.print(initStr.c_str());
      }
      matrix.show(); 
@@ -1014,7 +1020,7 @@ void loop() {
   }
   else {
     setGlobals();
-    // this call should have fixed
+    matrix.setBrightness(brightness); // Set BRIGHTNESS (max = 255)
 
     while (true) {
     

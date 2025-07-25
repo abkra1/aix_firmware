@@ -716,16 +716,16 @@ void setGlobals () {
   //printf("setGlobals: html done reading: %s\n", getTimestring());
   //Serial.print(line);
   
-  String  httpRequest = String("GET /params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
+  String  httpGetRequest = String("/params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
                String("Host: ") + getter->GetRealIP() + String("\r\n") + 
                String("Authorization: Basic ") + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
 
   String line;
   
-  if (getter->sendHttpRequest(httpRequest, line, refreshProxy)) {
+  if (getter->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
     
     printf("-------------------\n");
-    printf("request:\n%s\n", httpRequest.c_str());
+    printf("request:\n%s\n", httpGetRequest.c_str());
     printf("-------------------\n");
     printf("line:\n%s\n", line.c_str());
     printf("-------------------\n");
