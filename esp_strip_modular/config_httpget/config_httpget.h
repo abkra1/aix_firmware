@@ -281,7 +281,6 @@ class WifiGetter
             myPort = myUrl.substring(colon+1,slash);        
             myPath = myUrl.substring(slash);        
         }
-        // port given
         
         printf("redirect extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
         
