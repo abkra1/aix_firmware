@@ -258,6 +258,12 @@ class WifiGetter
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
         String myUrl = parseHtml(line,String("aixurl"),redirectHost + String(redirectPort));
+        
+        printf("aixurl before '%s'\n", myUrl.c_str());
+
+        myUrl.replace("https://","");
+        myUrl.replace("http://",""); // we do not support http anymore ...
+        
         int colon = myUrl.indexOf(":");
         int slash = myUrl.indexOf("/");
         String myHost = myUrl;  // default, only new IP/name
@@ -281,7 +287,6 @@ class WifiGetter
             myPort = myUrl.substring(colon+1,slash);        
             myPath = myUrl.substring(slash);        
         }
-        // port given
         
         printf("redirect extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
         
