@@ -73,7 +73,7 @@ class WifiGetter
       WiFiClientSecure client;
       client.setInsecure(); // we have insecure certs here (own certs so server validation will fail)
     
-      printf("try connect to: %s\n",host.c_str());
+      printf("try connect to: %s:%d\n",host.c_str(),port);
       if (!client.connect(host.c_str(), port)) {
         String message = String("connection failed to ") + host + String(" : ") + String(port) + String(" failed");
 	Serial.println(message.c_str());
@@ -117,6 +117,8 @@ class WifiGetter
       line.replace("%5F","_");
       line.replace("%25","%");
  
+      
+      //printf("html reply:\n%s\n", line.c_str());
  
       htmlReply = line;
       return true;
@@ -184,10 +186,10 @@ class WifiGetter
       // I think we can omit this in later builds
       // TODO: delete       
       if (ssid == "noldor") {
-        host = "192.168.93.13";
-	    port = 443;
+            host = "192.168.93.13";
+	    port = 1817;
 	    path = "";
-        return true;
+            return true;
       }
   
       WiFiClientSecure redirectClient;
@@ -293,7 +295,7 @@ class WifiGetter
 	    if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
 	        port = atoi(myPort.c_str());
 	        host = myHost;
-            path = myPath;            
+                path = myPath;            
 	        return true;
 	    }
          
