@@ -485,10 +485,10 @@ public:
     if (actPos < -maxPos) {
       actPos = LED_COLS;
       actCalls = actCalls + 1;
-      printf("next messge display loop\n");
+      printf("next message display loop\n");
     } else {
       actPos = actPos - 1;
-      printf("messge pos %d\n", actPos);
+      printf("message pos %d\n", actPos);
     }
 
     matrix.fillScreen(0);
@@ -651,7 +651,7 @@ private:
 
 // config page
 String hwDeviceType = "AXCLOCK";
-String firmwareVersion = "5.1";
+String firmwareVersion = "5.2";
 
 //
 //   WIFI stuff ... we make it global
@@ -674,7 +674,7 @@ String hardwareDeviceID = "empty";
 String mode = "CLOCK";
 String oldMode = "x";
 String oldMessage = "x";
-String oldMsgTime = "x";
+//String oldmessge = "x";
 String oldBrightness = "x";
 String oldTimezone = "x";
 String oldClockColor = "x";
@@ -683,7 +683,7 @@ String oldMsgLoops = "x";
 String oldAlert = "";
 String oldAlertTime = "";
 
-String msgTime = "4";
+//String msgTime = "4";
 size_t brightness = 20;
 int timezone = 2;
 size_t clockColor = 4;
@@ -734,7 +734,7 @@ void setGlobals() {
 
       String newBrightness = getter->parseHtml(line, String("brightness"), oldBrightness);
       String newMsgLoops = getter->parseHtml(line, String("msg_loops"), oldMsgLoops);
-      String newMsgTime = getter->parseHtml(line, String("msg_time"), oldMsgTime);
+      //String newMsgTime = getter->parseHtml(line, String("msg_time"), oldMsgTime);
 
       String newAlertTime = getter->parseHtml(line, String("alert_time"), oldAlertTime);
       String newAlert = getter->parseHtml(line, String("alert"), oldAlert);
@@ -758,9 +758,9 @@ void setGlobals() {
         if ((offset > -24) && (offset < 24)) {
           timezone = offset;
           // setting time to now .... to avoid old messages
-          msgTime = getTimesInt(timezone);
+          //msgTime = getTimesInt(timezone);
         }
-        printf("setting summer/wintertime offset to %d, msgtime to %s\n", timezone, msgTime.c_str());
+        printf("setting summer/wintertime offset to %d\n", timezone);
       }
 
       if (newClockColor != oldClockColor) {
@@ -778,7 +778,7 @@ void setGlobals() {
         if ((value >= 0) && (value <= RANDOM_COLOR)) {
           msgColor = value;
         }
-        printf("setting message color to %d\n", msgColor);
+        printf("setting message color to %d\n", msgColor);        
       }
 
       if (newBrightness != oldBrightness) {
@@ -799,7 +799,7 @@ void setGlobals() {
         }
         printf("setting message loops to %d\n", msgLoops);
       }
-
+#if 0
       // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
       if (newMsgTime != oldMsgTime) {
         oldMsgTime = newMsgTime;
@@ -813,6 +813,7 @@ void setGlobals() {
         }
         printf("setting last message time to %s\n", msgTime.c_str());
       }
+#endif
 
       if (newAlert != oldAlert) {
         int value = newAlert.toInt();
@@ -833,12 +834,14 @@ void setGlobals() {
         }
       }
 
-      // if we want to display this ... decided by timestamp
+      // if we want to display this ... we should decide by timestamp (currently commented out)
+
       if (newMessage != oldMessage) {
         oldMessage = newMessage;
         printf("setting message to %s\n", oldMessage.c_str());
         if (msgCount > 0) {
           mode = "MESSAGE";
+          printf("setting mode to MESSAGE\n");
         }
         msgCount++; 
       }
