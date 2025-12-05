@@ -7,11 +7,17 @@
 #include <WiFiClientSecure.h>
 
 #include <driver/adc.h>
-#include <config.h>
 #include <ArduinoUniqueID.h>
 
-
 #include "EmonLib.h"
+
+// include the webserver module / class
+#include "config_filesystem/config_filesystem.h"
+#include "config_webserver/config_webserver.h"
+#include "config_httpget/config_httpget.h"
+
+
+
 
 #define ADC_INPUT_1 34
 #define ADC_INPUT_2 35
@@ -154,13 +160,13 @@ void listNetworks() {
 void IRAM_ATTR WiFiEvent(WiFiEvent_t event)
 {
   switch (event) {
-    case SYSTEM_EVENT_STA_CONNECTED:
+    case WIFI_EVENT_STA_CONNECTED:
       printf("connected\n");
       break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
+    case WIFI_EVENT_STA_DISCONNECTED:
       printf("Disconnected from WiFi access point\n");
       break;
-    case SYSTEM_EVENT_AP_STADISCONNECTED:
+    case WIFI_EVENT_AP_STADISCONNECTED:
       printf("WiFi client disconnected\n");
       break;
     case WIFI_REASON_AUTH_EXPIRE:
