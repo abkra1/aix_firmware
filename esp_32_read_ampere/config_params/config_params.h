@@ -1,6 +1,5 @@
-#ifndef H_CONFIG_HTTPGET
-#define H_CONFIG_HTTPGET
-
+#ifndef H_CONFIG_PARAMS
+#define H_CONFIG_PARAMS
 //
 //   configuration local http getter module
 //     to be included and called by setup + loop
@@ -11,6 +10,93 @@
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = -3600;   //Replace with your GMT offset (seconds)
 const int   daylightOffset_sec = 0;  //Replace with your daylight offset 
+
+
+class ParamSet
+{
+  public:
+    String name;
+    String display;
+    String default;
+    String value;
+    
+  ParamSet(String inName, String inDisplay, String inDefault, String inValue):
+  name(inName),
+  dsplay(inDisplay),
+  default(inDefault),
+  value(inValue)
+  {}
+  
+  SetValue(String inValue) { 
+    value = inValue;
+  }
+  
+  SetDisplay(String inDisplay) { 
+    display = inDisplay;
+  }
+    
+  SetDefault(String inDefault) { 
+    default = inDefaut;
+  }
+    
+  String GetValue() { 
+    return value;
+  }
+  
+  String GetName() { 
+    return name;
+  }
+  
+  String GetDefault() { 
+    return default;
+  }  
+  
+  String GetDisplay() { 
+    return display;
+  }  
+  
+    
+  private: 
+
+}
+
+class Params
+{
+
+  Params() {}
+  
+  NewParam(String inName, String inDisplay, String inDefault, String inValue) {
+  
+  }
+  
+  SetValue(String inName, String inValue) {
+  
+  }
+  
+
+  String GetValue()
+
+
+
+  private:
+  
+    ParamSet FindByName(const String& name) {
+        auto paramset = params.find(name);
+        if (paramset != paramset.end()) {
+            return *paramset;
+        }
+        return ParamSet()
+    }
+  
+    map<string,ParamSet> params;
+
+
+}
+
+
+
+
+
 
 
 
