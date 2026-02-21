@@ -40,10 +40,13 @@ double amps3 = 0.0;
 double amps4 = 0.0;
 
 // ---------------------------------
+// config page
+String hwDeviceType = "AXAMPERE";
+String firmwareVersion = "2.0";
 
 
-const char* ssid = "galadriel"; //replace this with your WiFi network name
-const char* password = "3Kinderund2Erwachsene"; //replace this with your WiFi network password
+// const char* ssid = "galadriel"; //replace this with your WiFi network name
+// const char* password = "3Kinderund2Erwachsene"; //replace this with your WiFi network password
 //const char* ssid = "noldor"; //replace this with your WiFi network name
 //const char* password = "MWisWima8Zh."; //replace this with your WiFi network password
 // const char* host = "192.168.93.13";
@@ -52,80 +55,7 @@ String realHost =  "192.168.93.13";
 bool initDone = false;
 int failCount = 0;
 
-
-String parseHtml(String reply, String tag, String def) {
-  String tagStart = String("<"+tag+">");
-  String tagEnd = String("</"+tag+">");
-  String value = def;
-  int posStart = reply.indexOf(tagStart);
-  int posEnd = reply.indexOf(tagEnd);
-  //printf("check %d tag: %s %d-%d len: %d\n",reply.length(), tag, posStart, posEnd, tagStart.length());
-  
-  if ((posStart > -1) && ((posStart + tagStart.length()) < posEnd) && (posEnd < reply.length())) {
-    value = reply.substring(posStart + tagStart.length(), posEnd);
-    //printf("Tag: %s Val: #%s#\n",tag,value);
-  }
-  return value;
-  
-}
-
-String getIPViaAbkra() {
-
-  if (ssid == "noldor") {
-    return "192.168.93.13";
-  }
-  
-  if (initDone)  {
-    return realHost;
-  }
-  
-  WiFiClientSecure abkraClient;
-  abkraClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
-  const int httpPort = 443;
-  String myHost = "www.abkra.de";
-  if (!abkraClient.connect(myHost.c_str(), httpPort)) {
-    Serial.println("abkra connection failed");
-    return "";
-  }
-  
-  // This will send the request to the server
-  abkraClient.print(String("GET") +" /num.html HTTP/1.1\r\nHost: "+ myHost +"\r\nConnection: close\r\n\r\n");
-
-  delay(5000);
-  String line;
-  char nextChar = 0;
-  //printf("html read: ");
-  //Serial.println(client.status());
-  //printf("\n");
-  while(abkraClient.available() && (nextChar < 254)){
-    nextChar = abkraClient.read();
-    if (nextChar < 254) {
-      //printf("%c",nextChar); 
-      line += String(nextChar);
-    }
-  }
-  //printf("abkra reply: %s\n",line.c_str());
-  
-  abkraClient.stop();
-  
-  String newIP;
-  //printf("\n");
-  if (line.length() > 100) {
-    String ref = parseHtml(line,String("td"),"<a href=\"https://88.152.251.180\">Heimat</a>");
-    int posStart = ref.indexOf("https");
-    int posEnd = ref.indexOf("Heimat");
-    if ((posStart > 0) && (posEnd-2 > posStart+8)) {
-      newIP = ref.substring(posStart+8,posEnd-2);
-      printf("realIP: %s\n",newIP.c_str());
-      initDone = true;
-      return newIP;
-    }
-  }
-  Serial.println("abkra getting IP failed");
-  return newIP;
-}
-
-
+/*
 void listNetworks() {
   // scan for nearby networks:
   Serial.println("** Scan Networks **");
@@ -149,8 +79,8 @@ void listNetworks() {
     Serial.println(" dBm");
   }
 }
-
-
+*/
+/*
 void IRAM_ATTR WiFiEvent(WiFiEvent_t event)
 {
   switch (event) {
@@ -174,7 +104,7 @@ void IRAM_ATTR WiFiEvent(WiFiEvent_t event)
       break;
   }
 }
-
+*/
 /*
 WL_IDLE_STATUS   0
 WL_NO_SSID_AVAIL  1
@@ -184,7 +114,7 @@ WL_CONNECT_FAILED   4
 WL_CONNECTION_LOST  5
 WL_DISCONNECTED   6
 */
-
+/*
 bool connect() {
 
   printf("Wifi init\n");
@@ -253,6 +183,8 @@ bool connect() {
   failCount++;
   return true;
 }
+
+*/
 
 
 void sendData () {
@@ -343,8 +275,10 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        WIFI Amperemeter, Version 1.3 \n");
-  printf("        Id %s\n",idStr.c_str());
+  printf("        WIFI Amperemeter\n");
+  printf("        Version %s\n", firmwareVersion.c_str());
+  printf("        Id %s\n", idStr.c_str());
+  printf("        HardwareId %s\n", hardwareDeviceID.c_str());
   printf("---------------------------------------------------------------\n");
 
   Serial.println("init");

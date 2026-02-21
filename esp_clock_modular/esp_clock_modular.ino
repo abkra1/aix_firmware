@@ -897,6 +897,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
+  printf("        WIFI Clock\n");
   printf("        Version %s\n", firmwareVersion.c_str());
   printf("        Id %s\n", idStr.c_str());
   printf("        HardwareId %s\n", hardwareDeviceID.c_str());
