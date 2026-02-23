@@ -304,6 +304,39 @@ class WifiGetter
       return false;
     }
 
+
+
+
+
+/*
+void listNetworks() {
+  // scan for nearby networks:
+  Serial.println("** Scan Networks **");
+  int numSsid = WiFi.scanNetworks();
+  if (numSsid == -1) {
+    Serial.println("Couldn't get any wifi connection");
+    return;
+  }
+
+  // print the list of networks seen:
+  Serial.print("number of available networks:");
+  Serial.println(numSsid);
+
+  // print the network number and name for each network found:
+  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+    Serial.print(thisNet);
+    Serial.print(") <");
+    Serial.print(WiFi.SSID(thisNet));
+    Serial.print("> Signal: ");
+    Serial.print(WiFi.RSSI(thisNet));
+    Serial.println(" dBm");
+  }
+}
+*/
+
+
+
+
     //
     //
     //
