@@ -1,44 +1,49 @@
+
 #ifndef H_CONFIG_PARAMS
 #define H_CONFIG_PARAMS
 //
-//   configuration params module
+//   configuration local http getter module
 //     to be included and called by setup + loop
 //
+
+
+#include <map>
+// attention config filesystem needs to be included before
 
 
 class ParamSet
 {
   public:
-    String name;
-    String display;
-    String default;
-    String value;
     
   ParamSet(String inName, String inDisplay, String inDefault, String inValue):
   name(inName),
-  dsplay(inDisplay),
-  default(inDefault),
-  value(inValue),
-  valid(true)
+  display(inDisplay),
+  default_value(inDefault),
+  value(inValue)
   {}
   
-  ParamSet():
-  valid(false) {
-  }
+  ParamSet(String inName, String inDisplay, String inDefault):
+  name(inName),
+  display(inDisplay),
+  default_value(inDefault),
+  value("")
+  {}
   
-  SetValue(String inValue) { 
+  ParamSet() {}
+  
+  void SetValue_unised(String inValue) { 
     value = inValue;
   }
   
-  SetDisplay(String inDisplay) { 
+  void SetDisplay(String inDisplay) { 
     display = inDisplay;
   }
     
-  SetDefault(String inDefault) { 
-    default = inDefaut;
+  void SetDefaultValue(String inDefault) { 
+    default_value = inDefault;
   }
     
-  String GetValue() { 
+  String GetValue_unused() { 
     return value;
   }
   
@@ -46,59 +51,106 @@ class ParamSet
     return name;
   }
   
-  String GetDefault() { 
-    return default;
+  String GetDefaultValue() { 
+    return default_value;
   }  
   
   String GetDisplay() { 
     return display;
   }  
   
-  bool IsValid() {
-      return valid;
-  }
     
   private: 
-      String inName;
-      String inDisplay;
-      String inDefault;
-      String inValue;
-      bool valid;
+    String name;
+    String display;
+    String default_value;
+    String value;
 
-}
+};
 
-class Params
+
+//
+// real access class
+//
+
+class ConfigParams
 {
+  public:
 
-  Params() {}
+  ConfigParams() {
+     printf("ConfigParams: v 2.0\n");
+     fileData = new FileSystemData();
+  }
+
+  ~ConfigParams() {
+     delete fileData;
+  }
+
   
-  NewParam(String inName, String inDisplay, String inDefault, String inValue) {
-     set = FindByName(InName);
-     if set.IsValid() {
-         set.SetValue(inValue);
-         set.SetDisplay(inDisplay);
-         set.SetDefault(inDefault);
-     } else {
-       set = ParamSet(inName, inDisplay, inDefault, inValue);
-     }
-     params[name] = set
+  bool AddParam(const String& inName, const String& inDisplay, const String& inDefault) {
+     // we assime there is no param so far .... or better the last one wins
+     params[inName] = ParamSet(inName, inDisplay, inDefault);
+     return fileData->addParam(inName, inDefault);
   }
   
-  SetValue(String inName, String inValue) {
-     set = FindByName(InName);
-     if set.IsValid() {
-         set.SetValue(inValue);
+  bool SetValue(const String& inName, const String& inValue) {
+     ParamSet set = FindByName(inName);
+     if (set.GetName() != "") {
+        // set.SetValue(inValue); 
+        params[inName]=set; 
+        return fileData->setValue(inName, inValue);
      }
-     params[name] = set
+     return true;
   }
   
 
-  String GetValue(String inName) {
-     set = FindByName(InName);
-     if set.IsValid() {
-         return set.GetValue(inValue);
+  // true on err
+  bool GetValue(const String& inName, String& outValue) {
+     ParamSet set = FindByName(inName);
+     if (set.GetName() != "") {
+        return fileData->getValue(inName, outValue); 
      }
-     return String();  
+     return true;
+  }
+    
+  bool GetDefault(const String& inName, String& outValue) {
+     ParamSet set = FindByName(inName);
+     if (set.GetName() != "") {
+        outValue = set.GetDefaultValue(); 
+        return false; 
+     }
+     return true;
+  }
+  
+  bool GetDisplay(const String& inName, String& outValue) {
+     ParamSet set = FindByName(inName);
+     if (set.GetName() != "") {
+        outValue = set.GetDisplay(); 
+        return false; 
+     }
+     return true;
+  }
+  
+  // deliberatly return a copy here
+  String GetNextParamValue(String inName) {  
+      // first call    
+      if (inName == "") {
+          auto paramset = params.begin();
+	  if (paramset != params.end()) {
+	      return paramset->second.GetName();
+	  }
+	  return String();
+      }
+      // subsequent calls
+      auto paramset = params.find(inName);
+      if (paramset == params.end()) {
+          return String();
+      }
+      paramset++;
+      if (paramset == params.end()) {
+          return String();
+      }
+      return paramset->second.GetName();      
   }
 
 
@@ -107,16 +159,20 @@ class Params
   
     ParamSet FindByName(const String& name) {
         auto paramset = params.find(name);
-        if (paramset != paramset.end()) {
-            return *paramset;
+        if (paramset != params.end()) {
+            return paramset->second;
         }
-        return ParamSet()
+        return ParamSet();
     }
   
-    map<string,ParamSet> params;
+    std::map<String,ParamSet> params;
+    FileSystemData* fileData;
+
+};
 
 
-}
+
+
 
 
 #endif

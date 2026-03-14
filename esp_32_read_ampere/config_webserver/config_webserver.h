@@ -13,15 +13,15 @@
 
 #include <WebServer.h>
 // attention this needs to be inlcluded in main
-//#include "../config_fileserver/config_fileserver.h"
+// #include "../config_fileserver/config_fileserver.h"
 
 
 
 
 // the one global instance of the webserver
 // has to be global and static for callback handling
-static WebServer* server;
-static ConfigData*       wifiData;
+static WebServer*        server;
+static ConfigParams*     configData;
 static String            hardwareDevice;
 static String            deviceType;
 
@@ -32,9 +32,10 @@ class WifiConfigWebserver {
 
 
   public: 
-    WifiConfigWebserver (ConfigData* configData, String newHwDevice, String newDeviceType)
+    WifiConfigWebserver (ConfigParams* configData, String newHwDevice, String newDeviceType)
     {
-      wifiData = configData;
+      printf("WifiConfigWebserver: v 2.0\n");
+      configData = configData;
       hardwareDevice = newHwDevice;
       deviceType = newDeviceType;
     }
@@ -75,7 +76,7 @@ class WifiConfigWebserver {
     
       server->begin();
       
-      server->on("/", handleRoot);      //Which routine to handle at root location  (fallback for all)
+      server->on("/", handleRoot);      // the routine to handle at root location  (fallback for all)
       //server->on("/config", handleNewConf); //as Per  <a href="ledOn">, Subroutine to be called
       server->on("/action_page", this->handleForm);
       //server->on("/restart", this->handleRestart);
@@ -86,6 +87,36 @@ class WifiConfigWebserver {
         
         // Serial.println("http read loop");
       }
+    }
+
+    //
+    //
+    //
+    
+
+    static String nextInputLine(ConfigParams* configData, const String& name) {
+        String display;
+	configData->GetDisplay(name, display);
+        String value;
+	configData->GetValue(name, value);
+	
+        String line = display
+	              + String(":<br><input type='text' name='") + name
+		      + String("' value='") + value
+		      + String("'><br><br>");
+        return line;
+    }
+    
+    static String nextLine(ConfigParams* configData, const String& name) {
+        String display;
+	configData->GetDisplay(name, display);
+        String value;
+	configData->GetValue(name, value);
+	
+        String line = display
+	              + String(": ") + value
+		      + String("<br><br>");
+        return line;
     }
 
 
@@ -102,44 +133,30 @@ class WifiConfigWebserver {
         // I wanted to avoid having to embed a template, well this is not better but it gets the job done
         String theValue;
         if (!reply) {
-          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: AXLEDSTRIP, HW-ID-") + hardwareDevice +String("<h2><h3>Settings and Wifi Credentials</h3>")
-                        + String("<form action='/action_page'>")
-                        + String("SSID:<br><input type='text' name='SSID' value='") + wifiData->getWifiSid() + String("'><br>")
-                        + String("PassPhrase:<br><input type='text' name='PassPhrase' value='") + wifiData->getWifiPassword() + String("'><br><br>")
-                        + String("DeviceID:<br><input type='text' name='DeviceID' value='") + wifiData->getWifiDeviceId() + String("'><br><br>")
-                        + String("Redirect Webserver:<br><input type='text' name='RedirectWebserver' value='") + wifiData->getValue("redirectwebserver") + String("'><br><br>")
-                        + String("Redirect Webserver Port:<br><input type='text' name='RedirectWebserverPort' value='") + wifiData->getValue("redirectwebserverport") + String("'><br><br>")
-                        + String("Redirect Webserver Page:<br><input type='text' name='RedirectWebserverPage' value='") + wifiData->getValue("redirectwebserverpage") + String("'><br><br>")
-                        + String("Redirect Webserver Secret:<br><input type='text' name='RedirectWebserverSecret' value='") + wifiData->getValue("redirectwebserversecret") + String("'><br><br>");
+          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: ") + deviceType + String(", HW-ID-") + hardwareDevice + String("<h2><h3>Settings and Wifi Credentials</h3>")
+                        + String("<form action='/action_page'>");
+			
+	  String name = configData->GetNextParamValue("");
+	  while (name != "") {
+	      theValue += nextInputLine(configData, name);
+	      name = configData->GetNextParamValue(name); 
+	  }
+						
                         
-                        // special value for this gadged
-                        // none so far ....  
-          //theValue = theValue              
-          //              + String("NumLeds:<br><input type='text' name='NumLeds' value='") + wifiData->getValue("numleds") + String("'><br><br>");
-                        
-          theValue = theValue               
-                        + String("<input type='submit' value='Submit'></form>")
+          theValue +=     String("<input type='submit' value='Submit'></form>")
                         + String("</body></html>"); 
         }
         else {
-          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: AXLEDSTRIP, HW-ID-") + hardwareDevice +String("<h2><h3>Settings and  Wifi Credentials</h3>")
-                        + String("<b>Saved values<b><br>")
-                        + String("SSID: ") + wifiData->getWifiSid() + String("<br>")
-                        + String("PassPhrase: ") + wifiData->getWifiPassword() + String("<br>")
-                        + String("DeviceID: ") + wifiData->getWifiDeviceId() + String("<br><br>")
-                        + String("Redirect Webserver: ") + wifiData->getValue("redirectwebserver") + String("<br><br>")
-                        + String("Redirect Webserver Port: ") + wifiData->getValue("redirectwebserverport") + String("<br><br>")
-                        + String("Redirect Webserver Page: ") + wifiData->getValue("redirectwebserverpage") + String("<br><br>")
-                        + String("Redirect Webserver Secret: ") + wifiData->getValue("redirectwebserversecret") + String("<br><br>");
-                        
-                        
-          // adding the special setting for this page
-          // none so far ....              
-          //theValue = theValue              
-          //              + String("NumLeds: ") + wifiData->getValue("numleds") + String("<br><br>");
+          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: ") + deviceType + String(", W-ID-") + hardwareDevice + String("<h2><h3>Settings and  Wifi Credentials</h3>")
+                        + String("<b>Saved values<b><br>");
+			
+	  String name = configData->GetNextParamValue("");
+	  while (name != "") {
+	      theValue += nextInputLine(configData, name);
+	      name = configData->GetNextParamValue(name); 
+	  }
             
-          theValue = theValue 
-			            + String("<a href='/'>Edit Mode</a><br><br>")
+          theValue +=     String("<a href='/'>Edit Mode</a><br><br>")
                         + String("</body></html>"); 
         }
         return theValue;
@@ -159,7 +176,21 @@ class WifiConfigWebserver {
     
     
     static void handleForm() {
-     Serial.println("You posted a config");
+    
+        Serial.println("You posted a config");
+     
+        String name = configData->GetNextParamValue("");
+	while (name != "") {
+	    String value = server->arg(name); 
+            Serial.print(name);
+            Serial.print(": ");
+            Serial.println(value);
+	    configData->SetValue(name, value);
+	    name = configData->GetNextParamValue("");
+	}
+     
+     
+  /*   
      String mySSID = server->arg("SSID"); 
      String myPass = server->arg("PassPhrase"); 
      String myDeviceId = server->arg("DeviceID"); 
@@ -176,20 +207,21 @@ class WifiConfigWebserver {
      Serial.println(myPass);
     
      // directly write to flash memory
-     wifiData->setWifiSid(mySSID);
-     wifiData->setWifiPassword(myPass);
-     wifiData->setWifiDeviceId(myDeviceId);
+     configData->setWifiSid(mySSID);
+     configData->setWifiPassword(myPass);
+     configData->setWifiDeviceId(myDeviceId);
      
-     wifiData->setValue("redirectwebserver", myRedirectWebserver);
-     wifiData->setValue("redirectwebserverport", myRedirectWebserverPort);
-     wifiData->setValue("redirectwebserverpage", myRedirectWebserverPage);
-     wifiData->setValue("redirectwebserversecret", myRedirectWebserverSecret);
+     configData->setValue("redirectwebserver", myRedirectWebserver);
+     configData->setValue("redirectwebserverport", myRedirectWebserverPort);
+     configData->setValue("redirectwebserverpage", myRedirectWebserverPage);
+     configData->setValue("redirectwebserversecret", myRedirectWebserverSecret);
      
      // special definition for this gadged
      // none so far ....
      // String myNumLeds = server->arg("NumLeds"); 
-     // wifiData->setValue("numleds", myNumLeds);
+     // configData->setValue("numleds", myNumLeds);
         
+ */
         
      String s = makeHTMLPage(true);
      server->send(200, "text/html", s); //Send web page

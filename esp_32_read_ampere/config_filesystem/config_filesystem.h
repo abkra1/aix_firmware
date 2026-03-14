@@ -24,16 +24,18 @@
 //
 //   the real class
 //
-class ConfigData {
+class FileSystemData {
     public:
 
-       ConfigData():
+       FileSystemData():
        wifiPassword("empty"),
        wifiSid("empty"),
        wifiDeviceId("empty"),
        configError(false)
        {
+            printf("FileSystemData: v 2.0\n");
             printf("ConfigData() init\n");
+	    //fileDataparams = Params();
             bool initFlag = SPIFFS.begin();
             if (!initFlag) {
               printf("ConfigData() init failed\n");
@@ -44,7 +46,7 @@ class ConfigData {
             }
        }
        
-       ~ConfigData(){
+       ~FileSystemData(){
             SPIFFS.end();
             wifiPassword = "";
        }
@@ -57,7 +59,7 @@ class ConfigData {
            return configError;
        }
 
-       String readConfigFile (String fileName) {
+       String readConfigFile (const String& fileName) {
           bool hasError = false;
           String content;
           if (SPIFFS.exists(fileName)) {
@@ -84,7 +86,7 @@ class ConfigData {
           return content;
        }
 
-       bool writeConfigFile (String fileName, String content) {
+       bool writeConfigFile (const String& fileName, const String& content) {
           bool hasError = false;
           if (!SPIFFS.exists(fileName)) {
             printf("ConfigData()::writeConfigFile(): creating %s\n",fileName.c_str());
@@ -120,6 +122,7 @@ class ConfigData {
        }
 
        
+       // keep this only for compatibility
        String getWifiPassword() {
             return wifiPassword;
        }
@@ -150,26 +153,38 @@ class ConfigData {
          return configError;
        }
        
-       // in addition there are custom setters and getters by "name"
        
+       // in addition there are custom setters and getters by "name"
+       // this is the real interface 
 
-       // returns false if the value is not existing
-       bool setValue(String valueName, String& valueContent) {
+       // returns true if the value is not existing
+       bool setValue(const String& valueName, const String& valueContent) {
          String fileName = "/" + valueName + ".txt"; 
          writeConfigFile(fileName, valueContent);
          return configError;
        }
-       // returns empty the value is not existing
-       String getValue(String valueName) {
-         String fileName = "/" + valueName + ".txt"; 
-         String valueContent = readConfigFile(fileName);
-         return valueContent;
-       }
+       // returns true the value is not existing
+       //String getValue(const String& valueName) {
+       //  String fileName = "/" + valueName + ".txt"; 
+       //  String valueContent = readConfigFile(fileName);
+       //  return valueContent;
+       //}
 
-       bool getValue(String valueName, String& valueContent) {
+       bool getValue(const String& valueName, String& valueContent) {
          String fileName = "/" + valueName + ".txt"; 
          valueContent = readConfigFile(fileName);
          return configError;
+       }
+       
+       // returns true if the value could not be set
+       bool addParam(const String& inName, const String& inDefault) {
+	   String dummy;
+	   if (getValue(inName, dummy)) {
+	       printf("ConfigData()::addParam() not found creating default value file content\n");
+	       configError = false;
+	       return setValue(inName, inDefault);
+	   }
+	   return false;   
        }
        
 

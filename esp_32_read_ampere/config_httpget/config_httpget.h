@@ -13,14 +13,48 @@ const long  gmtOffset_sec = -3600;   //Replace with your GMT offset (seconds)
 const int   daylightOffset_sec = 0;  //Replace with your daylight offset 
 
 
+//
+//  call to add the definitions necessary to handle the WiFi stuff and redirect
+//
+#define WIFI_SSID "wifissid"
+#define WIFI_PASS "wifipass"
+#define WIFI_DEVICE "device"
+#define WIFI_REDIRECTURL "redirecturl"
+#define WIFI_REDIRECTSECRET "redirectsecret"
+
+
+
+
+     String mySSID = server->arg("SSID"); 
+     String myPass = server->arg("PassPhrase"); 
+     String myDeviceId = server->arg("DeviceID"); 
+     
+     String myRedirectWebserver = server->arg("RedirectWebserver"); 
+     String myRedirectWebserverPort = server->arg("RedirectWebserverPort"); 
+     String myRedirectWebserverPage = server->arg("RedirectWebserverPage"); 
+     String myRedirectWebserverSecret = server->arg("RedirectWebserverSecret"); 
+
+
+static void AddWifiParams(ConfigParams* configParams, String device) {
+    configParama->AddParam(WIFI_SSID, "WiFi-SSID", "");
+    configParama->AddParam(WIFI_PASS, "WiFi-Passphrase", "");
+    configParama->AddParam(WIFI_DEVICE, "WiFi-DeviceID", device);
+    configParama->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
+    configParama->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Secret", "");
+}
+
+
+
+
+
 
 class WifiGetter
 {
 
   public:
 
-    WifiGetter(String newSid, String newPassword, String redirectHostIn, int redirectPortIn, String redirectPageIn, String redirectSecretIn) {
-   
+    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectSecretIn) {
+      printf("WifiGetter: v 1.1\n");
       ssid = newSid;
       password = newPassword;
       if ((ssid == "") || (password.length() < 8)) {
@@ -28,9 +62,50 @@ class WifiGetter
        
       }
       
-      redirectHost = redirectHostIn;
-      redirectPort = redirectPortIn;
-      redirectPage = redirectPageIn;
+      // split redirect url
+      
+        redirectUrlIn.replace("https://","");
+        redirectUrlIn.replace("http://",""); // we do not support http anymore ...
+        
+        int colon = redirectUrlIn.indexOf(":");
+        int slash = redirectUrlIn.indexOf("/");
+        String myHost = redirectUrlIn;  // default, only new IP/name
+        String myPort = "443";  // default https
+        String myPath = "";     // default ""
+        
+        // no port but a path
+        if ((colon == -1) && (slash != -1)) {
+            myHost = redirectUrlIn.substring(0,slash);
+            myPath = redirectUrlIn.substring(slash);
+        }
+        else 
+        // no path but colon
+        if ((colon != -1) && (slash == -1)) {
+            myHost = redirectUrlIn.substring(0,colon);
+            myPort = redirectUrlIn.substring(colon+1);
+        }
+        else {
+        // all given
+            myHost = redirectUrlIn.substring(0,colon);
+            myPort = redirectUrlIn.substring(colon+1,slash);        
+            myPath = redirectUrlIn.substring(slash);        
+        }
+        
+        printf("redirect URL extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
+        
+	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
+	        port = atoi(myPort.c_str());
+	        redirectHost = myHost;
+                redirectPage = myPath;            
+	        return true;
+	}
+      
+      
+      
+      
+      redirectHost = myHost;
+      redirectPort = myPort;
+      redirectPage = myPage;
       redirectSecret = redirectSecretIn;
       
     }
@@ -99,7 +174,6 @@ class WifiGetter
       }
 
       client.stop();
-      delete wifiData;
  
       // cleanup html quotes
       // TODO: use a real quoting function
@@ -183,33 +257,25 @@ class WifiGetter
     //   returns false on error
   
     bool getIPViaRedirectHost() {
-    
-      // I think we can omit this in later builds
-      // TODO: delete       
-      if (ssid == "noldor") {
-            host = "192.168.93.13";
-	    port = 1817;
-	    path = "";
-            return true;
-      }
-  
+      
       WiFiClientSecure redirectClient;
       redirectClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
       String myHost = redirectHost;
-      String mySecret = redirectSecret;
       printf("redirect host: %s\n",myHost.c_str());
       if (!redirectClient.connect(myHost.c_str(), redirectPort)) {
         String message = String("redirect connection to ") + myHost + String(" : ") + String(redirectPort) + String(" failed");
-	    Serial.println(message.c_str());
+	Serial.println(message.c_str());
         return false;
       }
   
       // This will send the request to the server
       // and use the redirect secret
       String req = String("GET /") + String(redirectPage) + String(" HTTP/1.1\r\n") 
-                   + String("Host: ") + myHost + String("\r\n")
-                  // + String("Authorization: Basic ") + mySecret + String("\r\n")
-                   + String("Connection: close\r\n\r\n");
+                   + String("Host: ") + myHost + String("\r\n");
+      if (redirectSecret != "") {
+          req += String("Authorization: Basic ") + mySecret + String("\r\n");
+      }
+      req += String("Connection: close\r\n\r\n");
       
       // send it
       // attention the webserver is very allergic against double slashes (//)
@@ -262,7 +328,7 @@ class WifiGetter
         // make this configurable .... naaa just create an own redirect page      
         String myUrl = parseHtml(line,String("aixurl"),redirectHost + String(redirectPort));
         
-        printf("aixurl before '%s'\n", myUrl.c_str());
+        printf("raw reddirect-url before '%s'\n", myUrl.c_str());
 
         myUrl.replace("https://","");
         myUrl.replace("http://",""); // we do not support http anymore ...
@@ -291,14 +357,14 @@ class WifiGetter
             myPath = myUrl.substring(slash);        
         }
         
-        printf("redirect extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
+        printf("redirect result extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
         
-	    if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
+	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
 	        port = atoi(myPort.c_str());
 	        host = myHost;
                 path = myPath;            
 	        return true;
-	    }
+	}
          
       }
       Serial.println("redirect getting IP failed");
