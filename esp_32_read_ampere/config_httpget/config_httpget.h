@@ -21,18 +21,8 @@ const int   daylightOffset_sec = 0;  //Replace with your daylight offset
 #define WIFI_DEVICE "device"
 #define WIFI_REDIRECTURL "redirecturl"
 #define WIFI_REDIRECTSECRET "redirectsecret"
-
-
-
-
-     String mySSID = server->arg("SSID"); 
-     String myPass = server->arg("PassPhrase"); 
-     String myDeviceId = server->arg("DeviceID"); 
-     
-     String myRedirectWebserver = server->arg("RedirectWebserver"); 
-     String myRedirectWebserverPort = server->arg("RedirectWebserverPort"); 
-     String myRedirectWebserverPage = server->arg("RedirectWebserverPage"); 
-     String myRedirectWebserverSecret = server->arg("RedirectWebserverSecret"); 
+#define WIFI_URL "url"
+#define WIFI_URLSECRET "urlsecret"
 
 
 static void AddWifiParams(ConfigParams* configParams, String device) {
@@ -41,11 +31,9 @@ static void AddWifiParams(ConfigParams* configParams, String device) {
     configParama->AddParam(WIFI_DEVICE, "WiFi-DeviceID", device);
     configParama->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
     configParama->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Secret", "");
+    configParama->AddParam(WIFI_URL, "URL", "");
+    configParama->AddParam(WIFI_URLSECREET, "URL-Secret", "");
 }
-
-
-
-
 
 
 class WifiGetter
@@ -53,7 +41,7 @@ class WifiGetter
 
   public:
 
-    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectSecretIn) {
+    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectSecretIn, String UrlIn) {
       printf("WifiGetter: v 1.1\n");
       ssid = newSid;
       password = newPassword;
@@ -62,6 +50,7 @@ class WifiGetter
        
       }
       
+      if (redirectUrlIn != "") {
       // split redirect url
       
         redirectUrlIn.replace("https://","");
@@ -103,11 +92,14 @@ class WifiGetter
       
       
       
-      redirectHost = myHost;
-      redirectPort = myPort;
-      redirectPage = myPage;
-      redirectSecret = redirectSecretIn;
-      
+        redirectHost = myHost;
+        redirectPort = myPort;
+        redirectPage = myPage;
+        redirectSecret = redirectSecretIn;
+      }
+      else {
+      axel mache eine funktion daraus
+      }
     }
    
    
