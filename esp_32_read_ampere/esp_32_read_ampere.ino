@@ -12,12 +12,7 @@
 #include "EmonLib.h"
 
 // include the webserver module / class
-#include "config_filesystem/config_filesystem.h"
-#include "config_params/config_params.h"
-#include "config_webserver/config_webserver.h"
-#include "config_httpget/config_httpget.h"
-
-
+#include "config.h"
 
 
 #define ADC_INPUT_1 34
@@ -49,138 +44,8 @@ double amps4 = 0.0;
 // ---------------------------------
 
 
-const char* ssid = "galadriel"; //replace this with your WiFi network name
-const char* password = "3Kinderund2Erwachsene"; //replace this with your WiFi network password
-//const char* ssid = "noldor"; //replace this with your WiFi network name
-//const char* password = "MWisWima8Zh."; //replace this with your WiFi network password
-// const char* host = "192.168.93.13";
-const int httpPort = 443;
-String realHost =  "192.168.93.13";
-bool initDone = false;
-int failCount = 0;
 
 
-String parseHtml(String reply, String tag, String def) {
-  String tagStart = String("<"+tag+">");
-  String tagEnd = String("</"+tag+">");
-  String value = def;
-  int posStart = reply.indexOf(tagStart);
-  int posEnd = reply.indexOf(tagEnd);
-  //printf("check %d tag: %s %d-%d len: %d\n",reply.length(), tag, posStart, posEnd, tagStart.length());
-  
-  if ((posStart > -1) && ((posStart + tagStart.length()) < posEnd) && (posEnd < reply.length())) {
-    value = reply.substring(posStart + tagStart.length(), posEnd);
-    //printf("Tag: %s Val: #%s#\n",tag,value);
-  }
-  return value;
-  
-}
-
-String getIPViaAbkra() {
-
-  if (ssid == "noldor") {
-    return "192.168.93.13";
-  }
-  
-  if (initDone)  {
-    return realHost;
-  }
-  
-  WiFiClientSecure abkraClient;
-  abkraClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
-  const int httpPort = 443;
-  String myHost = "www.abkra.de";
-  if (!abkraClient.connect(myHost.c_str(), httpPort)) {
-    Serial.println("abkra connection failed");
-    return "";
-  }
-  
-  // This will send the request to the server
-  abkraClient.print(String("GET") +" /num.html HTTP/1.1\r\nHost: "+ myHost +"\r\nConnection: close\r\n\r\n");
-
-  delay(5000);
-  String line;
-  char nextChar = 0;
-  //printf("html read: ");
-  //Serial.println(client.status());
-  //printf("\n");
-  while(abkraClient.available() && (nextChar < 254)){
-    nextChar = abkraClient.read();
-    if (nextChar < 254) {
-      //printf("%c",nextChar); 
-      line += String(nextChar);
-    }
-  }
-  //printf("abkra reply: %s\n",line.c_str());
-  
-  abkraClient.stop();
-  
-  String newIP;
-  //printf("\n");
-  if (line.length() > 100) {
-    String ref = parseHtml(line,String("td"),"<a href=\"https://88.152.251.180\">Heimat</a>");
-    int posStart = ref.indexOf("https");
-    int posEnd = ref.indexOf("Heimat");
-    if ((posStart > 0) && (posEnd-2 > posStart+8)) {
-      newIP = ref.substring(posStart+8,posEnd-2);
-      printf("realIP: %s\n",newIP.c_str());
-      initDone = true;
-      return newIP;
-    }
-  }
-  Serial.println("abkra getting IP failed");
-  return newIP;
-}
-
-
-void listNetworks() {
-  // scan for nearby networks:
-  Serial.println("** Scan Networks **");
-  int numSsid = WiFi.scanNetworks();
-  if (numSsid == -1) {
-    Serial.println("Couldn't get any wifi connection");
-    return;
-  }
-
-  // print the list of networks seen:
-  Serial.print("number of available networks:");
-  Serial.println(numSsid);
-
-  // print the network number and name for each network found:
-  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
-    Serial.print(thisNet);
-    Serial.print(") <");
-    Serial.print(WiFi.SSID(thisNet));
-    Serial.print("> Signal: ");
-    Serial.print(WiFi.RSSI(thisNet));
-    Serial.println(" dBm");
-  }
-}
-
-
-void IRAM_ATTR WiFiEvent(WiFiEvent_t event)
-{
-  switch (event) {
-    case WIFI_EVENT_STA_CONNECTED:
-      printf("connected\n");
-      break;
-    case WIFI_EVENT_STA_DISCONNECTED:
-      printf("Disconnected from WiFi access point\n");
-      break;
-    case WIFI_EVENT_AP_STADISCONNECTED:
-      printf("WiFi client disconnected\n");
-      break;
-    case WIFI_REASON_AUTH_EXPIRE:
-      printf("WiFi client auth expire\n");
-      break;
-    case WIFI_REASON_UNSPECIFIED:
-      printf("WiFi client unspecified\n");
-      break;
-    default: 
-      printf("WiFi event: %d\n",event);
-      break;
-  }
-}
 
 /*
 WL_IDLE_STATUS   0
@@ -355,7 +220,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        WIFI Amperemeter, Version 1.3 \n");
+  printf("        WIFI Amperemeter, Version 2.0 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 

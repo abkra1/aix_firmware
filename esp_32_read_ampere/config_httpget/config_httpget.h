@@ -26,13 +26,13 @@ const int   daylightOffset_sec = 0;  //Replace with your daylight offset
 
 
 static void AddWifiParams(ConfigParams* configParams, String device) {
-    configParama->AddParam(WIFI_SSID, "WiFi-SSID", "");
-    configParama->AddParam(WIFI_PASS, "WiFi-Passphrase", "");
-    configParama->AddParam(WIFI_DEVICE, "WiFi-DeviceID", device);
-    configParama->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
-    configParama->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Secret", "");
-    configParama->AddParam(WIFI_URL, "URL", "");
-    configParama->AddParam(WIFI_URLSECREET, "URL-Secret", "");
+    configParams->AddParam(WIFI_SSID, "WiFi-SSID", "");
+    configParams->AddParam(WIFI_PASS, "WiFi-Passphrase", "");
+    configParams->AddParam(WIFI_DEVICE, "WiFi-DeviceID", device);
+    configParams->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
+    configParams->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Secret", "");
+    configParams->AddParam(WIFI_URL, "URL", "");
+    configParams->AddParam(WIFI_URLSECRET, "URL-Secret", "");
 }
 
 
@@ -51,55 +51,13 @@ class WifiGetter
       }
       
       if (redirectUrlIn != "") {
-      // split redirect url
-      
-        redirectUrlIn.replace("https://","");
-        redirectUrlIn.replace("http://",""); // we do not support http anymore ...
-        
-        int colon = redirectUrlIn.indexOf(":");
-        int slash = redirectUrlIn.indexOf("/");
-        String myHost = redirectUrlIn;  // default, only new IP/name
-        String myPort = "443";  // default https
-        String myPath = "";     // default ""
-        
-        // no port but a path
-        if ((colon == -1) && (slash != -1)) {
-            myHost = redirectUrlIn.substring(0,slash);
-            myPath = redirectUrlIn.substring(slash);
-        }
-        else 
-        // no path but colon
-        if ((colon != -1) && (slash == -1)) {
-            myHost = redirectUrlIn.substring(0,colon);
-            myPort = redirectUrlIn.substring(colon+1);
-        }
-        else {
-        // all given
-            myHost = redirectUrlIn.substring(0,colon);
-            myPort = redirectUrlIn.substring(colon+1,slash);        
-            myPath = redirectUrlIn.substring(slash);        
-        }
-        
-        printf("redirect URL extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
-        
-	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
-	        port = atoi(myPort.c_str());
-	        redirectHost = myHost;
-                redirectPage = myPath;            
-	        return true;
-	}
-      
-      
-      
-      
-        redirectHost = myHost;
-        redirectPort = myPort;
-        redirectPage = myPage;
+        // split redirect url
+        parseUrl(redirectUrlIn, redirectHost, redirectPort, redirectPage);
         redirectSecret = redirectSecretIn;
       }
-      else {
-      axel mache eine funktion daraus
-      }
+      //else {
+      //   axel mache eine funktion daraus
+      //}
     }
    
    
@@ -205,6 +163,29 @@ class WifiGetter
        return ip.toString();
     }
 
+    void listNetworks() {
+      // scan for nearby networks:
+      Serial.println("** Scan Networks **");
+      int numSsid = WiFi.scanNetworks();
+      if (numSsid == -1) {
+	Serial.println("Couldn't get any wifi connection");
+	return;
+      }
+
+      // print the list of networks seen:
+      Serial.print("number of available networks:");
+      Serial.println(numSsid);
+
+      // print the network number and name for each network found:
+      for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+	Serial.print(thisNet);
+	Serial.print(") <");
+	Serial.print(WiFi.SSID(thisNet));
+	Serial.print("> Signal: ");
+	Serial.print(WiFi.RSSI(thisNet));
+	Serial.println(" dBm");
+      }
+    }
 
 
   private:
@@ -220,7 +201,9 @@ class WifiGetter
       }
       WiFi.disconnect();
       delay (1000); // this is async and give the router some time
-      
+      //WiFi.mode(WIFI_STA);// we are a client !
+      //delay (100);
+      //WiFi.onEvent(WiFiEvent);
       printf("Wifi init\n");
       size_t wait = 0;  
       WiFi.begin(ssid.c_str(), password.c_str());
@@ -254,6 +237,7 @@ class WifiGetter
       redirectClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
       String myHost = redirectHost;
       printf("redirect host: %s\n",myHost.c_str());
+      
       if (!redirectClient.connect(myHost.c_str(), redirectPort)) {
         String message = String("redirect connection to ") + myHost + String(" : ") + String(redirectPort) + String(" failed");
 	Serial.println(message.c_str());
@@ -265,7 +249,7 @@ class WifiGetter
       String req = String("GET /") + String(redirectPage) + String(" HTTP/1.1\r\n") 
                    + String("Host: ") + myHost + String("\r\n");
       if (redirectSecret != "") {
-          req += String("Authorization: Basic ") + mySecret + String("\r\n");
+          req += String("Authorization: Basic ") + redirectSecret + String("\r\n");
       }
       req += String("Connection: close\r\n\r\n");
       
@@ -319,9 +303,14 @@ class WifiGetter
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
         String myUrl = parseHtml(line,String("aixurl"),redirectHost + String(redirectPort));
-        
+        	
         printf("raw reddirect-url before '%s'\n", myUrl.c_str());
 
+        if (parseUrl(myUrl, host, port, path)) {
+	    return true;
+	} 
+
+/*
         myUrl.replace("https://","");
         myUrl.replace("http://",""); // we do not support http anymore ...
         
@@ -357,10 +346,79 @@ class WifiGetter
                 path = myPath;            
 	        return true;
 	}
-         
+ */
       }
       Serial.println("redirect getting IP failed");
       return false;
+    }
+
+
+    bool parseUrl(const String& url, String& host, int& port, String& path) {
+    
+        printf("raw reddirect-url before '%s'\n", url.c_str());
+	
+        String myUrl = url;
+        myUrl.replace("https://","");
+        myUrl.replace("http://",""); // we do not support http anymore ...
+        
+        int colon = myUrl.indexOf(":");
+        int slash = myUrl.indexOf("/");
+        String myHost = myUrl;  // default, only new IP/name
+        String myPort = "443";  // default https
+        String myPath = "";     // default ""
+        
+        // no port but a path
+        if ((colon == -1) && (slash != -1)) {
+            myHost = myUrl.substring(0,slash);
+            myPath = myUrl.substring(slash);
+        }
+        else 
+        // no path but colon
+        if ((colon != -1) && (slash == -1)) {
+            myHost = myUrl.substring(0,colon);
+            myPort = myUrl.substring(colon+1);
+        }
+        else {
+        // all given
+            myHost = myUrl.substring(0,colon);
+            myPort = myUrl.substring(colon+1,slash);        
+            myPath = myUrl.substring(slash);        
+        }
+        
+        printf("redirect result extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
+        
+	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
+	        port = atoi(myPort.c_str());
+	        host = myHost;
+                path = myPath;            
+	        return true;
+	}
+	printf("redirect parsing URL/IP failed\n");
+        return false;
+    }
+
+
+    void IRAM_ATTR WiFiEvent(WiFiEvent_t event) {
+      switch (event) {
+        case WIFI_EVENT_STA_CONNECTED:
+          printf("connected\n");
+          break;
+        case WIFI_EVENT_STA_DISCONNECTED:
+          printf("Disconnected from WiFi access point\n");
+          break;
+        case WIFI_EVENT_AP_STADISCONNECTED:
+          printf("WiFi client disconnected\n");
+          break;
+        case WIFI_REASON_AUTH_EXPIRE:
+          printf("WiFi client auth expire\n");
+          break;
+        case WIFI_REASON_UNSPECIFIED:
+          printf("WiFi client unspecified\n");
+          break;
+        default: 
+          printf("WiFi event: %d\n",event);
+          break;
+      }
     }
 
     //
