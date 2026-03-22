@@ -58,6 +58,7 @@ WL_CONNECTION_LOST  5
 WL_DISCONNECTED   6
 */
 
+/*
 bool connect() {
 
   printf("Wifi init\n");
@@ -126,8 +127,8 @@ bool connect() {
   failCount++;
   return true;
 }
-
-
+*/
+/*
 void sendData () {
 
   //  network stuff
@@ -154,6 +155,7 @@ void sendData () {
   }
 
   // build the URL (passing on the values
+
   String url = "/amperemeter/SETTER.sh?amps1=" + String(amps1,4) +"&amps2=" + String(amps2,4) +"&amps3=" + String(amps3,4) +"&amps4=" + String(amps4,4);
 
 
@@ -192,7 +194,7 @@ void sendData () {
    
 }
 
-
+*/
 //
 //  global classes for config interaction
 //
@@ -229,9 +231,13 @@ void setGlobals() {
   printf("setGlobals: init\n");
   // digitalWrite(ERROR_PIN,HIGH);
 
-  if (getter == NULL) {
-    getter = new WifiGetter(wifiData->getWifiSid(),
-                            wifiData->getWifiPassword(),
+  if (wifiGetter == NULL) {
+    wifiGetter = new WifiGetter(configParams->getValue(WIFI_SSID),
+                            configParams->getValue(WIFI_PASS),
+                            configParams->getValue(WIFI_REDIRECTURL),
+                            configParams->getValue(WIFI_REDIRECTSECRET),
+                            configParams->getValue(WIFI_URL),
+                            
                             wifiData->getValue("redirectwebserver"),
                             wifiData->getValue("redirectwebserverport").toInt(),
                             wifiData->getValue("redirectwebserverpage"),
@@ -243,24 +249,27 @@ void setGlobals() {
   //
 
   // This will send the request to the server
-  String httpGetRequest = String("/params_") + hwDeviceType + String("_") + 
-                          wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") + String("Host: ") + 
-                          getter->GetRealIP() + String("\r\n") + String("Authorization: Basic ") + 
-                          wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
+  String httpGetRequest = String("/set?device_type=") + hwDeviceType + String("/set?device_id=") + wifiData->getWifiDeviceId()
+             + String("&amps1=") + String(amps1,4) 
+             + String("&amps2=") + String(amps2,4)
+             + String("&amps3=") + String(amps3,4) 
+             + String("&amps4=") + String(amps4,4) 
+             + String" HTTP/1.1\r\n") + String("Host: ")
+             + getter->GetRealIP() + String("\r\n") + String("Authorization: Basic ")
+             + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
 
-  String url = "/amperemeter/SETTER.sh?amps1=" + String(amps1,4) +"&amps2=" + String(amps2,4) +"&amps3=" + String(amps3,4) +"&amps4=" + String(amps4,4);
 
 
 
   String line;
   if (getter->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
-    /*
+    
     printf("-------------------\n");
     printf("request:\n%s\n", httpRequest.c_str());
     printf("-------------------\n");
     printf("line:\n%s\n", line.c_str());
     printf("-------------------\n");
-*/
+#if 0
     if (line.length() > 500) {
       String newTimezone = getter->parseHtml(line, String("timezone"), oldTimezone);
       String newClockColor = getter->parseHtml(line, String("clock_color"), oldClockColor);
@@ -276,7 +285,7 @@ void setGlobals() {
       String newMessage = getter->parseHtml(line, String("message"), oldMessage);
 
       // printf("new: %s %s %s\n",newMode, newStart, newWheels);
-#if 0    
+    
       // mode is switched my new string
       String newMode = getter->parseHtml(line,String("mode"),oldMode);
       if (newMode != oldMode) {
@@ -284,7 +293,6 @@ void setGlobals() {
         mode = newMode;
         printf("setting mode to %s\n",mode);
       }
-#endif
 
       if (newTimezone != oldTimezone) {
         oldTimezone = newTimezone;
@@ -333,7 +341,7 @@ void setGlobals() {
         }
         printf("setting message loops to %d\n", msgLoops);
       }
-#if 0
+
       // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
       if (newMsgTime != oldMsgTime) {
         oldMsgTime = newMsgTime;
@@ -347,7 +355,7 @@ void setGlobals() {
         }
         printf("setting last message time to %s\n", msgTime.c_str());
       }
-#endif
+
 
       if (newAlert != oldAlert) {
         int value = newAlert.toInt();
@@ -380,7 +388,7 @@ void setGlobals() {
         msgCount++; 
       }
       printf("reply parsed\n  Timezone: %s\n   alert:   %s\n", oldTimezone.c_str(), oldAlert.c_str());
-
+#endif
       
       digitalWrite(ERROR_PIN, LOW);
       

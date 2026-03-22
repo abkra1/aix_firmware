@@ -112,6 +112,14 @@ class ConfigParams
      }
      return true;
   }
+  
+  String GetValue(const String& inName) {
+     String outValue;
+     if (!GetValue(inName, outValue)) {
+        return outValue; 
+     }
+     return "";
+  }
     
   bool GetDefault(const String& inName, String& outValue) {
      ParamSet set = FindByName(inName);
