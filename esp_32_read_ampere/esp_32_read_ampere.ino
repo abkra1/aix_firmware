@@ -12,7 +12,7 @@
 #include "EmonLib.h"
 
 // include the webserver module / class
-#include "config.h"
+#include "config/config.h"
 
 
 #define ADC_INPUT_1 34
@@ -25,8 +25,9 @@
 #define ADC_COUNTS  (1<<ADC_BITS)
 
 
-#define LED_BLUE 14
-#define LED_YELLOW 12
+#define LED_PIN 14
+#define ERROR_PIN 12
+#define SWITCH_PIN 26
 #define MAX_READ 10
 
 // we have 4 channels to read, let us hope it is this simple
@@ -196,24 +197,220 @@ void sendData () {
 //  global classes for config interaction
 //
 
+ConfigParams* configParams = NULL;
+WifiGetter* wifiGetter = NULL;
+String idStr = "undefined";
+bool refreshProxy = true;
+
+// this is specific for each gadget and needs to be called to init the data reader
+configParams* GetConfigParameters (String device) {
+    if (configParams) {
+        delete configParams;
+    }
+     
+    configParams = new ConfigParams();
+    // this is common for all boards 
+    AddWifiParams(configParams, device);
+    // special parameters
+    configParams->AddParam("", "Redirect-URL", "");
+    // return
+    return configParams;
+}
+
+//
+//  global call to re-read the connection or configuration data
+//
+
+void setGlobals() {
+
+  // we will move this later ... just somewhere else
+  configParams = GetConfigParameters (idStr);
+
+  printf("setGlobals: init\n");
+  // digitalWrite(ERROR_PIN,HIGH);
+
+  if (getter == NULL) {
+    getter = new WifiGetter(wifiData->getWifiSid(),
+                            wifiData->getWifiPassword(),
+                            wifiData->getValue("redirectwebserver"),
+                            wifiData->getValue("redirectwebserverport").toInt(),
+                            wifiData->getValue("redirectwebserverpage"),
+                            wifiData->getValue("redirectwebserversecret"));
+  }
+
+  // auth string is set as
+  //  base64 encoded user:password
+  //
+
+  // This will send the request to the server
+  String httpGetRequest = String("/params_") + hwDeviceType + String("_") + 
+                          wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") + String("Host: ") + 
+                          getter->GetRealIP() + String("\r\n") + String("Authorization: Basic ") + 
+                          wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
+
+  String url = "/amperemeter/SETTER.sh?amps1=" + String(amps1,4) +"&amps2=" + String(amps2,4) +"&amps3=" + String(amps3,4) +"&amps4=" + String(amps4,4);
 
 
 
+  String line;
+  if (getter->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
+    /*
+    printf("-------------------\n");
+    printf("request:\n%s\n", httpRequest.c_str());
+    printf("-------------------\n");
+    printf("line:\n%s\n", line.c_str());
+    printf("-------------------\n");
+*/
+    if (line.length() > 500) {
+      String newTimezone = getter->parseHtml(line, String("timezone"), oldTimezone);
+      String newClockColor = getter->parseHtml(line, String("clock_color"), oldClockColor);
+      String newMsgColor = getter->parseHtml(line, String("msg_color"), oldMsgColor);
+
+      String newBrightness = getter->parseHtml(line, String("brightness"), oldBrightness);
+      String newMsgLoops = getter->parseHtml(line, String("msg_loops"), oldMsgLoops);
+      //String newMsgTime = getter->parseHtml(line, String("msg_time"), oldMsgTime);
+
+      String newAlertTime = getter->parseHtml(line, String("alert_time"), oldAlertTime);
+      String newAlert = getter->parseHtml(line, String("alert"), oldAlert);
+
+      String newMessage = getter->parseHtml(line, String("message"), oldMessage);
+
+      // printf("new: %s %s %s\n",newMode, newStart, newWheels);
+#if 0    
+      // mode is switched my new string
+      String newMode = getter->parseHtml(line,String("mode"),oldMode);
+      if (newMode != oldMode) {
+        oldMode = newMode;
+        mode = newMode;
+        printf("setting mode to %s\n",mode);
+      }
+#endif
+
+      if (newTimezone != oldTimezone) {
+        oldTimezone = newTimezone;
+        int offset = oldTimezone.toInt();
+        if ((offset > -24) && (offset < 24)) {
+          timezone = offset;
+          // setting time to now .... to avoid old messages
+          //msgTime = getTimesInt(timezone);
+        }
+        printf("setting summer/wintertime offset to %d\n", timezone);
+      }
+
+      if (newClockColor != oldClockColor) {
+        oldClockColor = newClockColor;
+        int value = newClockColor.toInt();
+        if ((value >= 0) && (value <= RANDOM_COLOR)) {
+          clockColor = value;
+        }
+        printf("setting clock color to %d\n", clockColor);
+      }
+
+      if (newMsgColor != oldMsgColor) {
+        oldMsgColor = newMsgColor;
+        int value = newMsgColor.toInt();
+        if ((value >= 0) && (value <= RANDOM_COLOR)) {
+          msgColor = value;
+        }
+        printf("setting message color to %d\n", msgColor);        
+      }
+
+      if (newBrightness != oldBrightness) {
+        oldBrightness = newBrightness;
+        int bright = oldBrightness.toInt();
+        if ((bright >= 0) && (bright < 255)) {
+          brightness = bright;
+        }
+        printf("setting brightness to %d\n", brightness);
+      }
+
+      // how often to display this stuff
+      if (newMsgLoops != oldMsgLoops) {
+        oldMsgLoops = newMsgLoops;
+        int value = newMsgLoops.toInt();
+        if ((value >= 0) && (value <= 10000)) {
+          msgLoops = value;
+        }
+        printf("setting message loops to %d\n", msgLoops);
+      }
+#if 0
+      // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
+      if (newMsgTime != oldMsgTime) {
+        oldMsgTime = newMsgTime;
+        // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
+        if ((oldMsgTime > "220221200911") && (oldMsgTime < "420221200911")) {
+          if (msgTime < oldMsgTime) {
+            msgTime = oldMsgTime;
+            mode = "MESSAGE";
+            printf("setting mode to MESSAGE\n");
+          }
+        }
+        printf("setting last message time to %s\n", msgTime.c_str());
+      }
+#endif
+
+      if (newAlert != oldAlert) {
+        int value = newAlert.toInt();
+        if ((value >= 0) && (value <= 255)) {
+          oldAlert = newAlert;
+        }
+        printf("setting alert to %s\n", oldAlert.c_str());
+        //mode = "MESSAGE";  this is done in the clock loop
+      }
+
+      if (newAlertTime != oldAlertTime) {
+        newAlertTime.replace("%3A", ":");
+        if (newAlertTime.length() == 5) {
+          oldAlertTime = newAlertTime;
+          printf("setting alert time to %s\n", oldAlertTime.c_str());
+        } else {
+          printf("illegal alert time to %s\n", newAlertTime.c_str());
+        }
+      }
+
+      // if we want to display this ... we should decide by timestamp (currently commented out)
+
+      if (newMessage != oldMessage) {
+        oldMessage = newMessage;
+        printf("setting message to %s\n", oldMessage.c_str());
+        if (msgCount > 0) {
+          mode = "MESSAGE";
+          printf("setting mode to MESSAGE\n");
+        }
+        msgCount++; 
+      }
+      printf("reply parsed\n  Timezone: %s\n   alert:   %s\n", oldTimezone.c_str(), oldAlert.c_str());
+
+      
+      digitalWrite(ERROR_PIN, LOW);
+      
+    } else {
+      
+      printf("reply too short, retry\n\n%s", line.c_str());
+      digitalWrite(ERROR_PIN, HIGH);
+    }
+    refreshProxy = false;
+    
+  } else {
+    printf("failed, full refresh initiated\n");
+    refreshProxy = true;
+    digitalWrite(ERROR_PIN, HIGH);
+  }
+
+}
+
+
+//
+//   initial setup called by OS
+//
 void setup() {
 
   
   // put your setup code here, to run once:
-  delay(5000);
   Serial.begin(115200);
+  delay(100);  // we need time to switch the port
   
-  pinMode(LED_BLUE, OUTPUT);
-  pinMode(LED_YELLOW, OUTPUT);
-  
-  digitalWrite(LED_BLUE, HIGH);
-  digitalWrite(LED_YELLOW, HIGH);
-
   ArduinoUniqueID uniqueId = ArduinoUniqueID();
-  String idStr = "";
   for (int i=0; i < UniqueIDbuffer; i++) {
     int buff = uniqueId.id[i];
      idStr += String(buff) + " "; 
@@ -226,11 +423,18 @@ void setup() {
 
   Serial.println("init");
 
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(ERROR_PIN, OUTPUT);
+  pinMode(SWITCH_PIN, INPUT);
+  delay(1000);
+
+  
+/*
   wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&wifi_init_config));
     //esp_err_t esp_wifi_set_ps(wifi_ps_type_t type)  
   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-
+*/
   
   adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
   analogReadResolution(10);
@@ -242,13 +446,9 @@ void setup() {
   emon4.current(ADC_INPUT_4, 185.0);
   // 1600W calibr 68 = 6.8 A = 285.0 cal
 
-  listNetworks();
-
-  delay(1000);  
-
-  connect();
-  
+  digitalWrite(ERROR_PIN, HIGH);  
   digitalWrite(LED_BLUE, LOW);
+  
   Serial.println("init done");
 
 
@@ -266,50 +466,91 @@ void setup() {
 void loop() {
 
 
-  unsigned long currentMillis = millis();
+  bool configMode = digitalRead(SWITCH_PIN);  // open+3.3v = true, gnd = false
 
-  // If it's been longer then 1000ms since we took a measurement, take one now!
-  // if(currentMillis - lastMeasurement > 1000){
-  //   nada nada nada jada
-  
-  int loops = 0;
-  
-  while (loops < 1000) {
-    loops++;
-    digitalWrite(LED_BLUE, HIGH);
-    delay (1000);
+  printf("start loop\n");
+
+
+  // config mode 
+  if (configMode) {
     
-    Serial.println("lesen");
+      printf("enter config mode\n");
+      
+      digitalWrite(ERROR_PIN, LOW);
+      delay(100);
+      digitalWrite(ERROR_PIN, HIGH);
+      delay(100);
+      digitalWrite(ERROR_PIN, LOW);
+      delay(100);
+      digitalWrite(ERROR_PIN, HIGH);
+      delay(100);
+      digitalWrite(ERROR_PIN, LOW);
 
-    // we read several times and use average value
-    amps1 = emon1.calcIrms(1480); // Calculate Irms only with magic number
-    amps2 = emon2.calcIrms(1480); // Calculate Irms only with magic number
-    amps3 = emon3.calcIrms(1480); // Calculate Irms only with magic number
-    amps4 = emon4.calcIrms(1480); // Calculate Irms only with magic number
+      ConfigParams* confData = new ConfigParams();
+      WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDeviceID, hwDeviceType);
+      configServer->runAcessPoint();  // this does not return
+  
+  } else {
+  // regular mode
+
+      setGlobals();
+
+      digitalWrite(LED_BLUE, LOW);
+      delay(100);
+      digitalWrite(LED_BLUE, HIGH);
+      delay(100);
+      digitalWrite(LED_BLUE, LOW);
+      delay(100);
+      digitalWrite(LED_BLUE, HIGH);
+      delay(100);
+      digitalWrite(LED_BLUE, LOW);
+
+
+    unsigned long currentMillis = millis();
+  
+    // If it's been longer then 1000ms since we took a measurement, take one now!
+    // if(currentMillis - lastMeasurement > 1000){
+    //   nada nada nada jada
     
-    size_t i;
-    for (i=1;i<MAX_READ;i++) {
-      Serial.print(".");
-      delay(20);
-      amps1 += emon1.calcIrms(1480); 
-      amps2 += emon2.calcIrms(1480); 
-      amps3 += emon3.calcIrms(1480); 
-      amps4 += emon4.calcIrms(1480); 
-    }
-    amps1 = amps1 / ((double) MAX_READ);
-    amps2 = amps2 / ((double) MAX_READ);
-    amps3 = amps3 / ((double) MAX_READ);
-    amps4 = amps4 / ((double) MAX_READ);
-
-    // just make some noise
-    Serial.println("+");   
-    printf("werte: %f %f %f %f\n", amps1, amps2, amps3, amps4);
-
-    // in theory we would set a timer ...... see first line
-    // because sending by WLan takes some time
-    sendData();
-    digitalWrite(LED_BLUE, LOW);
-    delay(55000);
-  }
+    int loops = 0;
+    
+    while (loops < 1000) {
+      loops++;
+      digitalWrite(LED_BLUE, HIGH);
+      delay (1000);
+      
+      Serial.println("lesen");
+  
+      // we read several times and use average value
+      amps1 = emon1.calcIrms(1480); // Calculate Irms only with magic number
+      amps2 = emon2.calcIrms(1480); // Calculate Irms only with magic number
+      amps3 = emon3.calcIrms(1480); // Calculate Irms only with magic number
+      amps4 = emon4.calcIrms(1480); // Calculate Irms only with magic number
+      
+      size_t i;
+      for (i=1;i<MAX_READ;i++) {
+        Serial.print(".");
+        delay(20);
+        amps1 += emon1.calcIrms(1480); 
+        amps2 += emon2.calcIrms(1480); 
+        amps3 += emon3.calcIrms(1480); 
+        amps4 += emon4.calcIrms(1480); 
+      }
+      amps1 = amps1 / ((double) MAX_READ);
+      amps2 = amps2 / ((double) MAX_READ);
+      amps3 = amps3 / ((double) MAX_READ);
+      amps4 = amps4 / ((double) MAX_READ);
+  
+      // just make some noise
+      Serial.println("+");   
+      printf("werte: %f %f %f %f\n", amps1, amps2, amps3, amps4);
+  
+      // in theory we would set a timer ...... see first line
+      // because sending by WLan takes some time
+      sendData();
+      digitalWrite(LED_BLUE, LOW);
+      delay(55000);
+    } // while
+  } // else 
   
 }
