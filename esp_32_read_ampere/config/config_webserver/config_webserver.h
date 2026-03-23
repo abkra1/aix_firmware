@@ -32,10 +32,10 @@ class WifiConfigWebserver {
 
 
   public: 
-    WifiConfigWebserver (ConfigParams* configData, String newHwDevice, String newDeviceType)
+    WifiConfigWebserver (ConfigParams* inConfigData, String newHwDevice, String newDeviceType)
     {
       printf("WifiConfigWebserver: v 2.0\n");
-      configData = configData;
+      configData = inConfigData;
       hardwareDevice = newHwDevice;
       deviceType = newDeviceType;
     }
@@ -133,16 +133,20 @@ class WifiConfigWebserver {
         // I wanted to avoid having to embed a template, well this is not better but it gets the job done
         String theValue;
         if (!reply) {
-          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: ") + deviceType + String(", HW-ID-") + hardwareDevice + String("<h2><h3>Settings and Wifi Credentials</h3>")
+          theValue = String("<!DOCTYPE html><html><head><title>AIX-Gadged config page</title></head><body><h2>AIX-Gadged:<br>Type: ") + deviceType + String("<br>HW-ID: ") + hardwareDevice + String("</h2><br><h3>Settings and Wifi Credentials</h3>")
                         + String("<form action='/action_page'>");
+
+
+
+          if (configData) {
+	          String name = configData->GetNextParamValue("");
 			
-	  String name = configData->GetNextParamValue("");
-	  while (name != "") {
-	      theValue += nextInputLine(configData, name);
-	      name = configData->GetNextParamValue(name); 
-	  }
-						
-                        
+	          while (name != "") {
+	              theValue += nextInputLine(configData, name);
+	              name = configData->GetNextParamValue(name); 
+	          }
+					
+          }          
           theValue +=     String("<input type='submit' value='Submit'></form>")
                         + String("</body></html>"); 
         }

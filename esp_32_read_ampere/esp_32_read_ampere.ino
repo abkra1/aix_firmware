@@ -45,9 +45,6 @@ double amps4 = 0.0;
 // ---------------------------------
 
 
-
-
-
 /*
 WL_IDLE_STATUS   0
 WL_NO_SSID_AVAIL  1
@@ -201,7 +198,7 @@ void sendData () {
 
 ConfigParams* configParams = NULL;
 WifiGetter* wifiHandler = NULL;
-String idStr = "undefined";
+String idStr = "";
 String typeStr = "AX_AMP";
 bool refreshProxy = true;
 
@@ -416,11 +413,11 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   delay(100);  // we need time to switch the port
-  
+
   ArduinoUniqueID uniqueId = ArduinoUniqueID();
   for (int i=0; i < UniqueIDbuffer; i++) {
     int buff = uniqueId.id[i];
-     idStr += String(buff) + " "; 
+     idStr += String(buff) + "_"; 
   }
 
   printf("\n---------------------------------------------------------------\n");
@@ -433,7 +430,9 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   pinMode(ERROR_PIN, OUTPUT);
   pinMode(SWITCH_PIN, INPUT);
-  delay(1000);
+  delay(100);
+
+  delay(10000);
 
   
 /*
@@ -442,8 +441,8 @@ void setup() {
     //esp_err_t esp_wifi_set_ps(wifi_ps_type_t type)  
   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 */
-  
-  adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
+  // adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
+ 
   analogReadResolution(10);
 
   // Initialize emon library (28-30 = calibration number for 1 = 1A)
@@ -455,7 +454,7 @@ void setup() {
 
   digitalWrite(ERROR_PIN, HIGH);  
   digitalWrite(LED_PIN, LOW);
-  
+
   Serial.println("init done");
 
 
@@ -471,7 +470,6 @@ void setup() {
 }
 
 void loop() {
-
 
   bool configMode = digitalRead(SWITCH_PIN);  // open+3.3v = true, gnd = false
 
@@ -493,7 +491,8 @@ void loop() {
       delay(100);
       digitalWrite(ERROR_PIN, LOW);
 
-      ConfigParams* confData = new ConfigParams();
+      //ConfigParams* confData = new ConfigParams();
+      ConfigParams* confData = GetConfigParameters (typeStr, idStr);
       WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, idStr, typeStr);
       configServer->runAcessPoint();  // this does not return
   
@@ -559,5 +558,5 @@ void loop() {
       delay(55000);
     } // while
   } // else 
-  
+
 }

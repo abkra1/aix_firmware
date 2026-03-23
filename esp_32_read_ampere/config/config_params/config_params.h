@@ -140,15 +140,17 @@ class ConfigParams
   }
   
   // deliberatly return a copy here
-  String GetNextParamValue(String inName) {  
+  String GetNextParamValue(String inName) {
+      
       // first call    
       if (inName == "") {
           auto paramset = params.begin();
-	  if (paramset != params.end()) {
-	      return paramset->second.GetName();
-	  }
-	  return String();
+	      if (paramset != params.end()) {
+	          return (paramset->second).GetName();
+	      }
+	      return String();
       }
+      
       // subsequent calls
       auto paramset = params.find(inName);
       if (paramset == params.end()) {
