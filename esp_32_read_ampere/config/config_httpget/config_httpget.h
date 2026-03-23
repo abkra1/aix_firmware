@@ -18,21 +18,24 @@ const int   daylightOffset_sec = 0;  //Replace with your daylight offset
 //
 #define WIFI_SSID "wifissid"
 #define WIFI_PASS "wifipass"
-#define WIFI_DEVICE "device"
+#define WIFI_DEVICE_ID "deviceid"
+#define WIFI_DEVICE_TYPE "devicetype"
 #define WIFI_REDIRECTURL "redirecturl"
 #define WIFI_REDIRECTSECRET "redirectsecret"
 #define WIFI_URL "url"
 #define WIFI_URLSECRET "urlsecret"
 
 
-static void AddWifiParams(ConfigParams* configParams, String device) {
+static void AddWifiParams(ConfigParams* configParams, String devicetype, String deviceid) {
     configParams->AddParam(WIFI_SSID, "WiFi-SSID", "");
     configParams->AddParam(WIFI_PASS, "WiFi-Passphrase", "");
-    configParams->AddParam(WIFI_DEVICE, "WiFi-DeviceID", device);
+    configParams->AddParam(WIFI_DEVICE_ID, "WiFi-DeviceID", deviceid);
+    configParams->AddParam(WIFI_DEVICE_TYPE, "WiFi-DeviceType", devicetype);
     configParams->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
     configParams->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Secret", "");
-    configParams->AddParam(WIFI_URL, "URL", "");
+    configParams->AddParam(WIFI_URLSECRET, "URL", "unused");
     configParams->AddParam(WIFI_URLSECRET, "URL-Secret", "");
+    
 }
 
 
@@ -41,7 +44,7 @@ class WifiGetter
 
   public:
 
-    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectSecretIn, String UrlIn) {
+    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectSecretIn) {
       printf("WifiGetter: v 1.1\n");
       ssid = newSid;
       password = newPassword;

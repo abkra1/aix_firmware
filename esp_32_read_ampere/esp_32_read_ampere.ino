@@ -200,21 +200,22 @@ void sendData () {
 //
 
 ConfigParams* configParams = NULL;
-WifiGetter* wifiGetter = NULL;
+WifiGetter* wifiHandler = NULL;
 String idStr = "undefined";
+String typeStr = "AX_AMP";
 bool refreshProxy = true;
 
 // this is specific for each gadget and needs to be called to init the data reader
-configParams* GetConfigParameters (String device) {
+ConfigParams* GetConfigParameters (String devicetype, String deviceid) {
     if (configParams) {
         delete configParams;
     }
      
     configParams = new ConfigParams();
     // this is common for all boards 
-    AddWifiParams(configParams, device);
+    AddWifiParams(configParams, devicetype, deviceid);
     // special parameters
-    configParams->AddParam("", "Redirect-URL", "");
+    //configParams->AddParam("", "Redirect-URL", "");
     // return
     return configParams;
 }
@@ -226,22 +227,16 @@ configParams* GetConfigParameters (String device) {
 void setGlobals() {
 
   // we will move this later ... just somewhere else
-  configParams = GetConfigParameters (idStr);
+  configParams = GetConfigParameters (typeStr, idStr);
 
   printf("setGlobals: init\n");
   // digitalWrite(ERROR_PIN,HIGH);
 
-  if (wifiGetter == NULL) {
-    wifiGetter = new WifiGetter(configParams->getValue(WIFI_SSID),
-                            configParams->getValue(WIFI_PASS),
-                            configParams->getValue(WIFI_REDIRECTURL),
-                            configParams->getValue(WIFI_REDIRECTSECRET),
-                            configParams->getValue(WIFI_URL),
-                            
-                            wifiData->getValue("redirectwebserver"),
-                            wifiData->getValue("redirectwebserverport").toInt(),
-                            wifiData->getValue("redirectwebserverpage"),
-                            wifiData->getValue("redirectwebserversecret"));
+  if (wifiHandler == NULL) {
+    wifiHandler = new WifiGetter(configParams->GetValue(WIFI_SSID),
+                            configParams->GetValue(WIFI_PASS),
+                            configParams->GetValue(WIFI_REDIRECTURL),
+                            configParams->GetValue(WIFI_REDIRECTSECRET));
   }
 
   // auth string is set as
@@ -249,28 +244,31 @@ void setGlobals() {
   //
 
   // This will send the request to the server
-  String httpGetRequest = String("/set?device_type=") + hwDeviceType + String("/set?device_id=") + wifiData->getWifiDeviceId()
+  String httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("/set?device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
              + String("&amps1=") + String(amps1,4) 
              + String("&amps2=") + String(amps2,4)
              + String("&amps3=") + String(amps3,4) 
              + String("&amps4=") + String(amps4,4) 
-             + String" HTTP/1.1\r\n") + String("Host: ")
-             + getter->GetRealIP() + String("\r\n") + String("Authorization: Basic ")
-             + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
+             + String (" HTTP/1.1\r\n") + String("Host: ")
+             + wifiHandler->GetRealIP() + String("\r\n") + String("Authorization: Basic ")
+             + configParams->GetValue(WIFI_URLSECRET) + String("\r\n\r\n");
 
 
 
-
+    
   String line;
-  if (getter->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
+  if (wifiHandler->sendHttpGetRequest(httpRequest, line, refreshProxy)) {
     
     printf("-------------------\n");
     printf("request:\n%s\n", httpRequest.c_str());
     printf("-------------------\n");
     printf("line:\n%s\n", line.c_str());
     printf("-------------------\n");
-#if 0
+
     if (line.length() > 500) {
+
+#if 0
+
       String newTimezone = getter->parseHtml(line, String("timezone"), oldTimezone);
       String newClockColor = getter->parseHtml(line, String("clock_color"), oldClockColor);
       String newMsgColor = getter->parseHtml(line, String("msg_color"), oldMsgColor);
@@ -389,7 +387,8 @@ void setGlobals() {
       }
       printf("reply parsed\n  Timezone: %s\n   alert:   %s\n", oldTimezone.c_str(), oldAlert.c_str());
 #endif
-      
+      printf("reply parsed\n");
+
       digitalWrite(ERROR_PIN, LOW);
       
     } else {
@@ -455,7 +454,7 @@ void setup() {
   // 1600W calibr 68 = 6.8 A = 285.0 cal
 
   digitalWrite(ERROR_PIN, HIGH);  
-  digitalWrite(LED_BLUE, LOW);
+  digitalWrite(LED_PIN, LOW);
   
   Serial.println("init done");
 
@@ -495,7 +494,7 @@ void loop() {
       digitalWrite(ERROR_PIN, LOW);
 
       ConfigParams* confData = new ConfigParams();
-      WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDeviceID, hwDeviceType);
+      WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, idStr, typeStr);
       configServer->runAcessPoint();  // this does not return
   
   } else {
@@ -503,15 +502,15 @@ void loop() {
 
       setGlobals();
 
-      digitalWrite(LED_BLUE, LOW);
+      digitalWrite(LED_PIN, LOW);
       delay(100);
-      digitalWrite(LED_BLUE, HIGH);
+      digitalWrite(LED_PIN, HIGH);
       delay(100);
-      digitalWrite(LED_BLUE, LOW);
+      digitalWrite(LED_PIN, LOW);
       delay(100);
-      digitalWrite(LED_BLUE, HIGH);
+      digitalWrite(LED_PIN, HIGH);
       delay(100);
-      digitalWrite(LED_BLUE, LOW);
+      digitalWrite(LED_PIN, LOW);
 
 
     unsigned long currentMillis = millis();
@@ -524,7 +523,7 @@ void loop() {
     
     while (loops < 1000) {
       loops++;
-      digitalWrite(LED_BLUE, HIGH);
+      digitalWrite(LED_PIN, HIGH);
       delay (1000);
       
       Serial.println("lesen");
@@ -555,8 +554,8 @@ void loop() {
   
       // in theory we would set a timer ...... see first line
       // because sending by WLan takes some time
-      sendData();
-      digitalWrite(LED_BLUE, LOW);
+      setGlobals();
+      digitalWrite(LED_PIN, LOW);
       delay(55000);
     } // while
   } // else 
