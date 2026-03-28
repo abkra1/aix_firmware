@@ -8,8 +8,8 @@
 
 // configurtion stuff
 //  saved on local
-#include <SPIFFS.h>
 #include "FS.h"
+#include <SPIFFS.h>
 
 
 //
@@ -36,10 +36,14 @@ class FileSystemData {
             printf("FileSystemData: v 2.0\n");
             printf("ConfigData() init\n");
 	    //fileDataparams = Params();
-            bool initFlag = SPIFFS.begin();
+            bool initFlag = SPIFFS.begin(true);  // true = format + create fs if failed
             if (!initFlag) {
-              printf("ConfigData() init failed\n");
-              configError = true;
+              printf("ConfigData() init failed, formating fs\n");
+	      initFlag = SPIFFS.begin(true);
+	      if (!initFlag) {
+	          printf("ConfigData() format failed\n");
+                  configError = true;
+	      }
             }
             else {
               configError = readConfig();

@@ -190,7 +190,7 @@ class WifiConfigWebserver {
             Serial.print(": ");
             Serial.println(value);
 	    configData->SetValue(name, value);
-	    name = configData->GetNextParamValue("");
+	    name = configData->GetNextParamValue(name);
 	}
      
      

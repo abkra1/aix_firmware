@@ -143,9 +143,10 @@ class ConfigParams
   String GetNextParamValue(String inName) {
       
       // first call    
-      if (inName == "") {
+      if (inName == "") {          
           auto paramset = params.begin();
 	      if (paramset != params.end()) {
+	          printf("first param, returning %s\n", (paramset->second).GetName().c_str());
 	          return (paramset->second).GetName();
 	      }
 	      return String();
@@ -154,12 +155,15 @@ class ConfigParams
       // subsequent calls
       auto paramset = params.find(inName);
       if (paramset == params.end()) {
+          printf("unknown param %s\n", inName.c_str());
           return String();
       }
       paramset++;
       if (paramset == params.end()) {
+          printf("last param %s\n", inName.c_str());
           return String();
       }
+      printf("returning param after param %s\n", inName.c_str());
       return paramset->second.GetName();      
   }
 

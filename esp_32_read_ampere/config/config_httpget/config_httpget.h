@@ -5,7 +5,7 @@
 //   configuration local http getter module
 //     to be included and called by setup + loop
 //
-
+#include "mbedtls/base64.h"
 
 // for time init
 const char* ntpServer = "pool.ntp.org";
@@ -21,9 +21,26 @@ const int   daylightOffset_sec = 0;  //Replace with your daylight offset
 #define WIFI_DEVICE_ID "deviceid"
 #define WIFI_DEVICE_TYPE "devicetype"
 #define WIFI_REDIRECTURL "redirecturl"
+#define WIFI_REDIRECTUSER "redirectuser"
 #define WIFI_REDIRECTSECRET "redirectsecret"
 #define WIFI_URL "url"
+#define WIFI_URLUSER "urluser"
 #define WIFI_URLSECRET "urlsecret"
+
+String static Base64Encode(String inStrUser, String inStrPW) {
+    unsigned char output[128];
+    size_t outlen;
+    String encode = inStrUser + String(":") + inStrPW;
+    const unsigned char* str = (const unsigned char*) encode.c_str();
+    mbedtls_base64_encode(output, 64, &outlen, str, encode.length());
+    if ((outlen < 1) || (outlen > 127)) {
+        printf("error encoding %s\n", encode.c_str());
+        return String();
+    }
+    output[outlen] = 0;
+    printf("encoded: %s\n", output);
+    return String((const char*) output);
+}
 
 
 static void AddWifiParams(ConfigParams* configParams, String devicetype, String deviceid) {
@@ -32,9 +49,11 @@ static void AddWifiParams(ConfigParams* configParams, String devicetype, String 
     configParams->AddParam(WIFI_DEVICE_ID, "WiFi-DeviceID", deviceid);
     configParams->AddParam(WIFI_DEVICE_TYPE, "WiFi-DeviceType", devicetype);
     configParams->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
-    configParams->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Secret", "");
+    configParams->AddParam(WIFI_REDIRECTUSER, "Redirect-URL-User", "");
+    configParams->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Passphrase", "");
     configParams->AddParam(WIFI_URLSECRET, "URL", "unused");
-    configParams->AddParam(WIFI_URLSECRET, "URL-Secret", "");
+    configParams->AddParam(WIFI_URLUSER, "URL-User", "");
+    configParams->AddParam(WIFI_URLSECRET, "URL-Passphrase", "");
     
 }
 
@@ -44,7 +63,7 @@ class WifiGetter
 
   public:
 
-    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectSecretIn) {
+    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectUserIn, String redirectSecretIn) {
       printf("WifiGetter: v 1.1\n");
       ssid = newSid;
       password = newPassword;
@@ -56,7 +75,9 @@ class WifiGetter
       if (redirectUrlIn != "") {
         // split redirect url
         parseUrl(redirectUrlIn, redirectHost, redirectPort, redirectPage);
-        redirectSecret = redirectSecretIn;
+	if ((redirectUserIn != "") && (redirectSecretIn != "")) {
+            redirectSecretBase64 = Base64Encode(redirectUserIn, redirectSecretIn);
+	}
       }
       //else {
       //   axel mache eine funktion daraus
@@ -251,8 +272,8 @@ class WifiGetter
       // and use the redirect secret
       String req = String("GET /") + String(redirectPage) + String(" HTTP/1.1\r\n") 
                    + String("Host: ") + myHost + String("\r\n");
-      if (redirectSecret != "") {
-          req += String("Authorization: Basic ") + redirectSecret + String("\r\n");
+      if (redirectSecretBase64 != "") {
+          req += String("Authorization: Basic ") + redirectSecretBase64 + String("\r\n");
       }
       req += String("Connection: close\r\n\r\n");
       
@@ -440,7 +461,7 @@ class WifiGetter
     String redirectHost;
     int redirectPort;
     String redirectPage;
-    String redirectSecret;
+    String redirectSecretBase64;
 
 };
 

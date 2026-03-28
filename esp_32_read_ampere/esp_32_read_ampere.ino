@@ -233,6 +233,7 @@ void setGlobals() {
     wifiHandler = new WifiGetter(configParams->GetValue(WIFI_SSID),
                             configParams->GetValue(WIFI_PASS),
                             configParams->GetValue(WIFI_REDIRECTURL),
+                            configParams->GetValue(WIFI_REDIRECTUSER),
                             configParams->GetValue(WIFI_REDIRECTSECRET));
   }
 
@@ -248,7 +249,7 @@ void setGlobals() {
              + String("&amps4=") + String(amps4,4) 
              + String (" HTTP/1.1\r\n") + String("Host: ")
              + wifiHandler->GetRealIP() + String("\r\n") + String("Authorization: Basic ")
-             + configParams->GetValue(WIFI_URLSECRET) + String("\r\n\r\n");
+             + Base64Encode(configParams->GetValue(WIFI_URLUSER), configParams->GetValue(WIFI_URLSECRET)) + String("\r\n\r\n");
 
 
 
@@ -431,8 +432,6 @@ void setup() {
   pinMode(ERROR_PIN, OUTPUT);
   pinMode(SWITCH_PIN, INPUT);
   delay(100);
-
-  delay(10000);
 
   
 /*
