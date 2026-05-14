@@ -199,7 +199,7 @@ void sendData () {
 ConfigParams* configParams = NULL;
 WifiGetter* wifiHandler = NULL;
 String idStr = "";
-String typeStr = "AX_AMP";
+String typeStr = "AXAMP";
 bool refreshProxy = true;
 
 // this is specific for each gadget and needs to be called to init the data reader
@@ -242,7 +242,7 @@ void setGlobals() {
   //
 
   // This will send the request to the server
-  String httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("/set?device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
+  String httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
              + String("&amps1=") + String(amps1,4) 
              + String("&amps2=") + String(amps2,4)
              + String("&amps3=") + String(amps3,4) 
@@ -422,7 +422,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        WIFI Amperemeter, Version 2.0 \n");
+  printf("        WIFI Amperemeter, Version 2.1 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 
@@ -554,7 +554,9 @@ void loop() {
       // because sending by WLan takes some time
       setGlobals();
       digitalWrite(LED_PIN, LOW);
-      delay(55000);
+      delay(7000);
+      printf("waiting loop: %d\n", loops);
+      delay(45000);
     } // while
   } // else 
 

@@ -64,7 +64,7 @@ class WifiGetter
   public:
 
     WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectUserIn, String redirectSecretIn) {
-      printf("WifiGetter: v 1.1\n");
+      printf("WifiGetter: v 1.2\n");
       ssid = newSid;
       password = newPassword;
       if ((ssid == "") || (password.length() < 8)) {
@@ -246,7 +246,7 @@ class WifiGetter
     
         return false;
       }
-      printf("failed: %d \n", WiFi.status());
+      printf("wifi init/connect failed, retcode: %d \n", WiFi.status());
       return true;
     }
 

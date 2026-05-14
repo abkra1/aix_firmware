@@ -28,12 +28,9 @@ class FileSystemData {
     public:
 
        FileSystemData():
-       wifiPassword("empty"),
-       wifiSid("empty"),
-       wifiDeviceId("empty"),
        configError(false)
        {
-            printf("FileSystemData: v 2.0\n");
+            printf("FileSystemData: v 2.1\n");
             printf("ConfigData() init\n");
 	    //fileDataparams = Params();
             bool initFlag = SPIFFS.begin(true);  // true = format + create fs if failed
@@ -46,21 +43,12 @@ class FileSystemData {
 	      }
             }
             else {
-              configError = readConfig();
+              printf("ConfigData() init done, filesystem found\n");
             }
        }
        
        ~FileSystemData(){
             SPIFFS.end();
-            wifiPassword = "";
-       }
-
-       bool readConfig() {
-           printf("ConfigData()::readConfig()\n");
-           wifiSid = readConfigFile("/sid.txt");
-           wifiPassword = readConfigFile("/pass.txt");
-           wifiDeviceId = readConfigFile("/deviceid.txt");
-           return configError;
        }
 
        String readConfigFile (const String& fileName) {
@@ -113,50 +101,6 @@ class FileSystemData {
           configError = hasError;
           return hasError;
        }
-
-
-       bool writeConfig(String sid, String password, String realip, String deviceid) {
-           printf("ConfigData()::writeConfig()\n");
-           setWifiSid(sid);
-           setWifiPassword(password);
-           setWifiDeviceId(wifiDeviceId);
-           // and now read it again to check and set internal values
-           readConfig();
-           return configError;
-       }
-
-       
-       // keep this only for compatibility
-       String getWifiPassword() {
-            return wifiPassword;
-       }
-
-       String getWifiSid() {
-            return wifiSid;
-       }
-       
-       String getWifiDeviceId() {
-            return wifiDeviceId;
-       }
-
-       bool setWifiPassword(String newVal) {
-         writeConfigFile("/pass.txt",newVal);
-         wifiPassword = newVal;
-         return configError;
-       }
-       
-       bool setWifiSid(String newVal) {
-         writeConfigFile("/sid.txt",newVal);
-         wifiSid = newVal;
-         return configError;
-       }
-
-       bool setWifiDeviceId(String newVal) {
-         writeConfigFile("/deviceid.txt",newVal);
-         wifiDeviceId = newVal;
-         return configError;
-       }
-       
        
        // in addition there are custom setters and getters by "name"
        // this is the real interface 
@@ -193,9 +137,6 @@ class FileSystemData {
        
 
     private:
-       String wifiSid;
-       String wifiPassword;
-       String wifiDeviceId;
        bool configError;
        
 };
