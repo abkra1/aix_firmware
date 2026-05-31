@@ -87,6 +87,7 @@ class WifiGetter
    
     // simple call to extract all between two xml tags
     //   does not really need an instance
+    // will return the passed def as default
     String parseHtml(String reply, String tag, String def) {
       String tagStart = String("<"+tag+">");
       String tagEnd = String("</"+tag+">");
@@ -326,51 +327,14 @@ class WifiGetter
       //printf("\n");
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
-        String myUrl = parseHtml(line,String("aixurl"),redirectHost + String(redirectPort));
+        String myUrl = parseHtml(line,String("axurl"),redirectHost + String(redirectPort));
         	
-        printf("raw reddirect-url before '%s'\n", myUrl.c_str());
+        printf("raw reddirect-url before '%s'\n", myUrl.c_str());	
 
         if (parseUrl(myUrl, host, port, path)) {
 	    return true;
 	} 
 
-/*
-        myUrl.replace("https://","");
-        myUrl.replace("http://",""); // we do not support http anymore ...
-        
-        int colon = myUrl.indexOf(":");
-        int slash = myUrl.indexOf("/");
-        String myHost = myUrl;  // default, only new IP/name
-        String myPort = "443";  // default https
-        String myPath = "";     // default ""
-        
-        // no port but a path
-        if ((colon == -1) && (slash != -1)) {
-            myHost = myUrl.substring(0,slash);
-            myPath = myUrl.substring(slash);
-        }
-        else 
-        // no path but colon
-        if ((colon != -1) && (slash == -1)) {
-            myHost = myUrl.substring(0,colon);
-            myPort = myUrl.substring(colon+1);
-        }
-        else {
-        // all given
-            myHost = myUrl.substring(0,colon);
-            myPort = myUrl.substring(colon+1,slash);        
-            myPath = myUrl.substring(slash);        
-        }
-        
-        printf("redirect result extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
-        
-	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
-	        port = atoi(myPort.c_str());
-	        host = myHost;
-                path = myPath;            
-	        return true;
-	}
- */
       }
       Serial.println("redirect getting IP failed");
       return false;

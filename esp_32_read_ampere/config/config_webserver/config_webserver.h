@@ -192,47 +192,10 @@ class WifiConfigWebserver {
 	    configData->SetValue(name, value);
 	    name = configData->GetNextParamValue(name);
 	}
-     
-     
-  /*   
-     String mySSID = server->arg("SSID"); 
-     String myPass = server->arg("PassPhrase"); 
-     String myDeviceId = server->arg("DeviceID"); 
-     
-     String myRedirectWebserver = server->arg("RedirectWebserver"); 
-     String myRedirectWebserverPort = server->arg("RedirectWebserverPort"); 
-     String myRedirectWebserverPage = server->arg("RedirectWebserverPage"); 
-     String myRedirectWebserverSecret = server->arg("RedirectWebserverSecret"); 
-         
-     Serial.print("mySSID:");
-     Serial.println(mySSID);
-    
-     Serial.print("myPass:");
-     Serial.println(myPass);
-    
-     // directly write to flash memory
-     configData->setWifiSid(mySSID);
-     configData->setWifiPassword(myPass);
-     configData->setWifiDeviceId(myDeviceId);
-     
-     configData->setValue("redirectwebserver", myRedirectWebserver);
-     configData->setValue("redirectwebserverport", myRedirectWebserverPort);
-     configData->setValue("redirectwebserverpage", myRedirectWebserverPage);
-     configData->setValue("redirectwebserversecret", myRedirectWebserverSecret);
-     
-     // special definition for this gadged
-     // none so far ....
-     // String myNumLeds = server->arg("NumLeds"); 
-     // configData->setValue("numleds", myNumLeds);
-        
- */
         
      String s = makeHTMLPage(true);
      server->send(200, "text/html", s); //Send web page
     }
-
-
-  
 
 
 };

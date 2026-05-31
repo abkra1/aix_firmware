@@ -44,154 +44,6 @@ double amps4 = 0.0;
 
 // ---------------------------------
 
-
-/*
-WL_IDLE_STATUS   0
-WL_NO_SSID_AVAIL  1
-WL_SCAN_COMPLETED   2
-WL_CONNECTED  3
-WL_CONNECT_FAILED   4
-WL_CONNECTION_LOST  5
-WL_DISCONNECTED   6
-*/
-
-/*
-bool connect() {
-
-  printf("Wifi init\n");
-  size_t wait = 0;  
-  //WiFi.disconnect();
-  //WiFi.onEvent(WiFiEvent);
-  WiFi.mode(WIFI_STA);// we are a client !
-  delay(100);
-  printf("WifiData: <%s> <%s>\n", ssid, password);
-  WiFi.begin(ssid, password);
-  initDone = false;
-  //uint8_t status = WiFi.waitForConnectResult();
-  uint8_t status = WiFi.status();
-  while ((status != WL_CONNECTED) && (wait < 30)) {
-    wait++;
-
-    //Serial.println(connectionStatusMessage(status));
-    
-    printf("connecting: %d, %d \n", wait, status);
-    
-    delay(300);
-
-    if ((wait == 20) || (wait == 20)) { 
-
-      digitalWrite(LED_YELLOW, LOW);
-      delay(100);
-      digitalWrite(LED_YELLOW, HIGH);
-      delay(100);
-      digitalWrite(LED_YELLOW, LOW);
-      delay(100);
-      digitalWrite(LED_YELLOW, HIGH);
-      delay(100);
-      digitalWrite(LED_YELLOW, LOW);
-      
-      int blink=0;
-      for (blink=0;blink<status;blink++) {
-        delay(250);
-        digitalWrite(LED_YELLOW, HIGH);
-        delay(250);
-        digitalWrite(LED_YELLOW, LOW);
-      }
-      delay(3000);
-      digitalWrite(LED_YELLOW, HIGH);
-      
-      printf("reconnect\n");
-      //WiFi.disconnect();
-      delay(100);
-      //WiFi.begin(ssid, password);
-      //WiFi.reconnect();
-    }
-    
-//    status = WiFi.waitForConnectResult();
-    status = WiFi.status();
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    IPAddress ip = WiFi.localIP();
-    Serial.print("IP Address: ");
-    Serial.println(ip);
-    
-    digitalWrite(LED_YELLOW, LOW);
-    failCount = 0;
-
-    return false;
-  }
-  printf("failed: %d \n", WiFi.status());
-  failCount++;
-  return true;
-}
-*/
-/*
-void sendData () {
-
-  //  network stuff
-  if (WiFi.status() != WL_CONNECTED) {
-     //printf("setGlobals: WIFI (re-)connect: %s\n", getTimestring());
-    if (connect()) {
-      if (failCount > 5) {
-        ESP.restart();
-      }
-      printf("failed to connect\n");
-      return;
-    }
-  }
-  
-  realHost = getIPViaAbkra();
-   
-  WiFiClientSecure client;
-  client.setInsecure(); // we have insecure certs here
-    
-  if (!client.connect(realHost.c_str(), httpPort)) {
-    printf("connection to %s failed\n", realHost.c_str());
-    
-    return;
-  }
-
-  // build the URL (passing on the values
-
-  String url = "/amperemeter/SETTER.sh?amps1=" + String(amps1,4) +"&amps2=" + String(amps2,4) +"&amps3=" + String(amps3,4) +"&amps4=" + String(amps4,4);
-
-
-  String getterCall = "GET " + url + " HTTP/1.1\r\n" +
-               "Host: " + realHost + "\r\n" + 
-               "Authorization: Basic YmxpbmRlcjpHaWJIZXI=" + "\r\n\r\n";
-
-  printf("calling\n%s\n", getterCall.c_str());
-
-  // This will send the request to the server
-  client.print(getterCall);
-
-  delay(50);
-  String line;
-
-  // read the reply .... an do not care at all :-)
-  char nextChar = 0;
-  //printf("setGlobals: html read: %s\n", getTimestring());
-  while(client.available() && (nextChar < 254)){
-    nextChar = client.read();
-    if (nextChar < 254) {
-      //printf("%c",nextChar); 
-      line += String(nextChar);
-    }
-  }
-  
-  printf("getter returned: %s\n", line.c_str());
-  
-  // we could ..... parse something here
-#if 0
-    if (line.length() > 100) {
-       yickety yack
-    }
-#endif
-  client.stop();
-   
-}
-
-*/
 //
 //  global classes for config interaction
 //
@@ -266,6 +118,9 @@ void setGlobals() {
     if (line.length() > 500) {
 
 #if 0
+
+      // this is implementation specific
+      // extraction of the parameters from the get / set routine
 
       String newTimezone = getter->parseHtml(line, String("timezone"), oldTimezone);
       String newClockColor = getter->parseHtml(line, String("clock_color"), oldClockColor);
@@ -384,7 +239,12 @@ void setGlobals() {
         msgCount++; 
       }
       printf("reply parsed\n  Timezone: %s\n   alert:   %s\n", oldTimezone.c_str(), oldAlert.c_str());
+
+      // end of specific stuff
+
 #endif
+
+
       printf("reply parsed\n");
 
       digitalWrite(ERROR_PIN, LOW);
@@ -422,7 +282,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        WIFI Amperemeter, Version 2.1 \n");
+  printf("        WIFI Amperemeter, Version 2.2 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 
@@ -434,12 +294,15 @@ void setup() {
   delay(100);
 
   
-/*
+/* error  handling of wifi init, left in for reference
   wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&wifi_init_config));
     //esp_err_t esp_wifi_set_ps(wifi_ps_type_t type)  
   ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 */
+
+  // this seems not necessary any more even when doc requires it
+  // it causes the esp32 to reset, so not use it for now
   // adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
  
   analogReadResolution(10);
@@ -455,16 +318,6 @@ void setup() {
   digitalWrite(LED_PIN, LOW);
 
   Serial.println("init done");
-
-
-  // If we still couldn't connect to the WiFi, go to deep sleep for a
-  // minute and try again.
-  // if(WiFi.status() != WL_CONNECTED){
-  //    esp_sleep_enable_timer_wakeup(1 * 60L * 1000000L);
-  //  esp_deep_sleep_start();
-  // }
-
-
   
 }
 
@@ -490,7 +343,6 @@ void loop() {
       delay(100);
       digitalWrite(ERROR_PIN, LOW);
 
-      //ConfigParams* confData = new ConfigParams();
       ConfigParams* confData = GetConfigParameters (typeStr, idStr);
       WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, idStr, typeStr);
       configServer->runAcessPoint();  // this does not return
@@ -516,6 +368,7 @@ void loop() {
     // If it's been longer then 1000ms since we took a measurement, take one now!
     // if(currentMillis - lastMeasurement > 1000){
     //   nada nada nada jada
+    //   some code for later to make it reall one minute or something
     
     int loops = 0;
     
@@ -526,7 +379,7 @@ void loop() {
       
       Serial.println("lesen");
   
-      // we read several times and use average value
+      // we read several times and use the average value
       amps1 = emon1.calcIrms(1480); // Calculate Irms only with magic number
       amps2 = emon2.calcIrms(1480); // Calculate Irms only with magic number
       amps3 = emon3.calcIrms(1480); // Calculate Irms only with magic number
