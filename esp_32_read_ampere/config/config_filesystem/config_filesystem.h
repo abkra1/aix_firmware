@@ -30,7 +30,7 @@ class FileSystemData {
        FileSystemData():
        configError(false)
        {
-            printf("FileSystemData: v 2.1\n");
+            printf("FileSystemData: v 2.2\n");
             printf("ConfigData() init\n");
 	    //fileDataparams = Params();
             bool initFlag = SPIFFS.begin(true);  // true = format + create fs if failed
@@ -74,7 +74,7 @@ class FileSystemData {
             hasError = true;
           }
           configError = hasError; // whatever
-          printf("ConfigData()::readConfigFile(): content %s\n",content.c_str());
+          printf("ConfigData()::readConfigFile(): content of %s : %s\n",fileName.c_str(), content.c_str());
           return content;
        }
 

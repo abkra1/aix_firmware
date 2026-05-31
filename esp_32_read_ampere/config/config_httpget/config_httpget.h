@@ -51,7 +51,7 @@ static void AddWifiParams(ConfigParams* configParams, String devicetype, String 
     configParams->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
     configParams->AddParam(WIFI_REDIRECTUSER, "Redirect-URL-User", "");
     configParams->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Passphrase", "");
-    configParams->AddParam(WIFI_URLSECRET, "URL", "unused");
+    configParams->AddParam(WIFI_URL, "URL", "unused");
     configParams->AddParam(WIFI_URLUSER, "URL-User", "");
     configParams->AddParam(WIFI_URLSECRET, "URL-Passphrase", "");
     
@@ -63,25 +63,26 @@ class WifiGetter
 
   public:
 
-    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectUserIn, String redirectSecretIn) {
-      printf("WifiGetter: v 1.2\n");
+    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectUserIn, String redirectSecretIn, String urlIn) {
+      printf("WifiGetter: v 1.3\n");
       ssid = newSid;
       password = newPassword;
+      defaultUrl = urlIn;
       if ((ssid == "") || (password.length() < 8)) {
-        printf("illegal ssid <%s> or passowrd (min 8 chars) <%s> \n", ssid.c_str(), password.c_str());
-       
+        printf("illegal ssid <%s> or passowrd (min 8 chars) <%s> \n", ssid.c_str(), password.c_str());       
       }
       
-      if (redirectUrlIn != "") {
+      if (redirectUrlIn.length() > 5) {
         // split redirect url
         parseUrl(redirectUrlIn, redirectHost, redirectPort, redirectPage);
 	if ((redirectUserIn != "") && (redirectSecretIn != "")) {
             redirectSecretBase64 = Base64Encode(redirectUserIn, redirectSecretIn);
 	}
       }
-      //else {
-      //   axel mache eine funktion daraus
-      //}
+      else {
+        printf("using direct connection to %s\n", urlIn.c_str()); 
+	parseUrl(urlIn, host, port, path);
+      }
     }
    
    
@@ -258,6 +259,12 @@ class WifiGetter
   
     bool getIPViaRedirectHost() {
       
+      // just skip redirect at all
+      if (redirectHost.length() < 4) {
+          printf("skipping redirect\n");
+          return true;
+      }
+      
       WiFiClientSecure redirectClient;
       redirectClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
       String myHost = redirectHost;
@@ -327,7 +334,7 @@ class WifiGetter
       //printf("\n");
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
-        String myUrl = parseHtml(line,String("axurl"),redirectHost);
+        String myUrl = parseHtml(line,String("axurl"),defaultUrl);
         	
         printf("raw reddirect-url before '%s'\n", myUrl.c_str());	
 
@@ -422,6 +429,7 @@ class WifiGetter
     int port;
     IPAddress ip;
     
+    String defaultUrl;
     String redirectHost;
     int redirectPort;
     String redirectPage;

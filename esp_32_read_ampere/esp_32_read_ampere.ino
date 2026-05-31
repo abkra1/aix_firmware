@@ -86,7 +86,8 @@ void setGlobals() {
                             configParams->GetValue(WIFI_PASS),
                             configParams->GetValue(WIFI_REDIRECTURL),
                             configParams->GetValue(WIFI_REDIRECTUSER),
-                            configParams->GetValue(WIFI_REDIRECTSECRET));
+                            configParams->GetValue(WIFI_REDIRECTSECRET),
+                            configParams->GetValue(WIFI_URL));
   }
 
   // auth string is set as
@@ -282,7 +283,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        WIFI Amperemeter, Version 2.2 \n");
+  printf("        WIFI Amperemeter, Version 2.3 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 
