@@ -327,7 +327,7 @@ class WifiGetter
       //printf("\n");
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
-        String myUrl = parseHtml(line,String("axurl"),redirectHost + String(redirectPort));
+        String myUrl = parseHtml(line,String("axurl"),redirectHost);
         	
         printf("raw reddirect-url before '%s'\n", myUrl.c_str());	
 
