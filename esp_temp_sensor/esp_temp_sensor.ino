@@ -1,48 +1,35 @@
+/*
+ * 
+ *  read the temperature and send it to the server
+ *
+ */
 
-// #include <Arduino.h>
-#include "SPI.h"
-#include "esp_wifi.h"
+#include <OneWire.h> 
+#include <DallasTemperature.h>
 
+// need this for the config module 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-
-#include <driver/adc.h>
 #include <ArduinoUniqueID.h>
 
-#include "EmonLib.h"
+// global settings
+
+
+// ----------------------------
+
+#define SENSOR_PIN 14     // D5
+
+#define SWITCH_PIN 5
+#define ERROR_PIN 4
+#define MIN_PER_SAMPLE "minpersample"
+
+String actualTemp1 = "99.9";
+int    minPerSample = 15;
+
+
 
 // include the webserver module / class
 #include "config/config.h"
-
-
-#define ADC_INPUT_1 34
-#define ADC_INPUT_2 35
-#define ADC_INPUT_3 32
-#define ADC_INPUT_4 33
-
-// Force EmonLib to use 10bit ADC resolution
-#define ADC_BITS    10
-#define ADC_COUNTS  (1<<ADC_BITS)
-
-
-#define LED_PIN 14
-#define ERROR_PIN 12
-#define SWITCH_PIN 26
-#define MAX_READ 10
-
-// we have 4 channels to read, let us hope it is this simple
-EnergyMonitor emon1;
-EnergyMonitor emon2;
-EnergyMonitor emon3;
-EnergyMonitor emon4;
-
-// actuals
-double amps1 = 0.0;
-double amps2 = 0.0;
-double amps3 = 0.0;
-double amps4 = 0.0;
-
-// ---------------------------------
 
 //
 //  global classes for config interaction
@@ -51,21 +38,22 @@ double amps4 = 0.0;
 ConfigParams* configParams = NULL;
 WifiGetter* wifiHandler = NULL;
 String idStr = "";
-String typeStr = "AXAMP";
+String typeStr = "AXTEMP";
 bool refreshProxy = true;
 
 // this is specific for each gadget and needs to be called to init the data reader
 ConfigParams* GetConfigParameters (String devicetype, String deviceid) {
     if (configParams) {
-        delete configParams;
+        //delete configParams;
+        return configParams;
     }
      
     configParams = new ConfigParams();
     // this is common for all boards 
     AddWifiParams(configParams, devicetype, deviceid);
     // special parameters
-    //configParams->AddParam("", "Redirect-URL", "");
-    // return
+    configParams->AddParam(MIN_PER_SAMPLE, "Minutes-per-Sample", "15");
+
     return configParams;
 }
 
@@ -96,16 +84,10 @@ void setGlobals() {
 
   // This will send the request to the server
   String httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
-             + String("&amps1=") + String(amps1,4) 
-             + String("&amps2=") + String(amps2,4)
-             + String("&amps3=") + String(amps3,4) 
-             + String("&amps4=") + String(amps4,4) 
+             + String("&temp1=") + actualTemp1 
              + String (" HTTP/1.1\r\n") + String("Host: ")
              + wifiHandler->GetRealIP() + String("\r\n") + String("Authorization: Basic ")
              + Base64Encode(configParams->GetValue(WIFI_URLUSER), configParams->GetValue(WIFI_URLSECRET)) + String("\r\n\r\n");
-
-
-
     
   String line;
   if (wifiHandler->sendHttpGetRequest(httpRequest, line, refreshProxy)) {
@@ -266,15 +248,61 @@ void setGlobals() {
 }
 
 
-//
-//   initial setup called by OS
-//
-void setup() {
+//  -------------------------------------------------------
 
-  
-  // put your setup code here, to run once:
+class TempGet
+{
+  public:
+    TempGet(int pin) {
+      tempSensorBus = (OneWire*) new OneWire(pin);
+      tempSensors = (DallasTemperature*) new DallasTemperature(tempSensorBus);
+    }
+    ~TempGet()
+    {
+      delete tempSensors;
+      delete tempSensorBus;
+    }
+
+    // the one and only usefull call
+    String getTempString() 
+    {
+        return String(getTempValue());
+    }
+    
+    // the one and only usefull call
+    float getTempValue() 
+    {
+       if (tempSensors) {
+         tempSensors->requestTemperatures();
+         return tempSensors->getTempCByIndex(0);
+       }
+       return -99.99;
+    }
+
+    
+  private:
+    OneWire* tempSensorBus;
+    DallasTemperature* tempSensors; 
+    
+};
+
+
+// ------------------------------------------------------------------------------
+
+//
+//   worker and init loops
+//
+//
+ 
+
+ 
+void setup() {
+  //
+  //   do not use pin D8 ever !!!!!!! (used by arduino upload
+  //   never, as in never ever ... do anything here that may cause an exception / segv ... whatever
+  //
   Serial.begin(115200);
-  delay(100);  // we need time to switch the port
+  delay(100); // we need time to switch the port
 
   ArduinoUniqueID uniqueId = ArduinoUniqueID();
   for (int i=0; i < UniqueIDbuffer; i++) {
@@ -283,51 +311,27 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        AX WIFI Amperemeter, Version 2.3 \n");
+  printf("        AX WIFI TempReader, Version 2.3 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 
   Serial.println("init");
 
-  pinMode(LED_PIN, OUTPUT);
+  delay(100);
   pinMode(ERROR_PIN, OUTPUT);
   pinMode(SWITCH_PIN, INPUT);
   delay(100);
-
   
-/* error  handling of wifi init, left in for reference
-  wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
-  ESP_ERROR_CHECK(esp_wifi_init(&wifi_init_config));
-    //esp_err_t esp_wifi_set_ps(wifi_ps_type_t type)  
-  ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-*/
-
-  // this seems not necessary any more even when doc requires it
-  // it causes the esp32 to reset, so not use it for now
-  // adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
- 
-  analogReadResolution(10);
-
-  // Initialize emon library (28-30 = calibration number for 1 = 1A)
-  emon1.current(ADC_INPUT_1, 185.0);
-  emon2.current(ADC_INPUT_2, 185.0);
-  emon3.current(ADC_INPUT_3, 185.0);
-  emon4.current(ADC_INPUT_4, 185.0);
-  // 1600W calibr 68 = 6.8 A = 285.0 cal
-
-  digitalWrite(ERROR_PIN, HIGH);  
-  digitalWrite(LED_PIN, LOW);
-
-  Serial.println("init done");
-  
+  //printf("setup done\n");
 }
-
+ 
+//
+//   the main loop to execute
+//
 void loop() {
-
   bool configMode = digitalRead(SWITCH_PIN);  // open+3.3v = true, gnd = false
 
   printf("start loop\n");
-
 
   // config mode 
   if (configMode) {
@@ -349,69 +353,72 @@ void loop() {
       configServer->runAcessPoint();  // this does not return
   
   } else {
-  // regular mode
 
-      setGlobals();
-
-      digitalWrite(LED_PIN, LOW);
-      delay(100);
-      digitalWrite(LED_PIN, HIGH);
-      delay(100);
-      digitalWrite(LED_PIN, LOW);
-      delay(100);
-      digitalWrite(LED_PIN, HIGH);
-      delay(100);
-      digitalWrite(LED_PIN, LOW);
-
-
-    unsigned long currentMillis = millis();
+    // init ....
+    // read once to male the right call
+    TempGet tempGetter(SENSOR_PIN);
+    actualTemp1 = tempGetter.getTempString();
   
-    // If it's been longer then 1000ms since we took a measurement, take one now!
-    // if(currentMillis - lastMeasurement > 1000){
-    //   nada nada nada jada
-    //   some code for later to make it reall one minute or something
+    printf("initial temp read %s\n", actualTemp1.c_str());
+  
+    // this will conveniently set the temp as well
+    setGlobals();
+
+    int value = configParams->GetValue(MIN_PER_SAMPLE).toInt();
+    if ((value > 0) && (value <= 12*60)) {
+          minPerSample = value;
+    } 
+    printf("sample time: %d\n", minPerSample);
+  
+    // blink to show all is fine
+    digitalWrite(ERROR_PIN, LOW);
+    delay(1000);
+    digitalWrite(ERROR_PIN, HIGH);
+    delay(1000);
+    digitalWrite(ERROR_PIN, LOW);
+    delay(1000);
+    digitalWrite(ERROR_PIN, HIGH);
     
     int loops = 0;
     
     while (loops < 2000) {
       loops++;
-      digitalWrite(LED_PIN, HIGH);
-      delay (1000);
       
-      Serial.println("lesen");
-  
-      // we read several times and use the average value
-      amps1 = emon1.calcIrms(1480); // Calculate Irms only with magic number
-      amps2 = emon2.calcIrms(1480); // Calculate Irms only with magic number
-      amps3 = emon3.calcIrms(1480); // Calculate Irms only with magic number
-      amps4 = emon4.calcIrms(1480); // Calculate Irms only with magic number
-      
-      size_t i;
-      for (i=1;i<MAX_READ;i++) {
-        Serial.print(".");
-        delay(20);
-        amps1 += emon1.calcIrms(1480); 
-        amps2 += emon2.calcIrms(1480); 
-        amps3 += emon3.calcIrms(1480); 
-        amps4 += emon4.calcIrms(1480); 
+      actualTemp1 = tempGetter.getTempString();
+      printf("%d temp read %s\n", loops, actualTemp1.c_str());
+#if 0      
+      if (activeTempLimit < tempGetter.getTempValue()) {
+        digitalWrite(LED_PIN, HIGH);
+        digitalWrite(RELAIS_PIN, HIGH);
+        printf("switch cooling on\n");
       }
-      amps1 = amps1 / ((double) MAX_READ);
-      amps2 = amps2 / ((double) MAX_READ);
-      amps3 = amps3 / ((double) MAX_READ);
-      amps4 = amps4 / ((double) MAX_READ);
+      else {
+        digitalWrite(LED_PIN, LOW);
+        digitalWrite(RELAIS_PIN, LOW);
+        printf("switch cooling off\n");
+      }
+#endif  
+      // and wait about 15 minutes
+      //delay(60*1000*15);
+      setGlobals(); 
+      // printf("actual tempLimit is %f\n",activeTempLimit);
+      if (!connected) {
+        digitalWrite(ERROR_PIN, LOW);
+        delay(1000);
+        digitalWrite(ERROR_PIN, HIGH);
+        delay(1000);
+        digitalWrite(ERROR_PIN, LOW);
+        delay(1000);
+        digitalWrite(ERROR_PIN, HIGH);
+      }
+      delay(60*1000*minPerSample);
+      loops++;
+    }    
+    
+    //sensors.requestTemperatures();
+    //Serial.println(sensors.getTempCByIndex(0));
+    delay(10);
+    
+  } // else
   
-      // just make some noise
-      Serial.println("+");   
-      printf("werte: %f %f %f %f\n", amps1, amps2, amps3, amps4);
-  
-      // in theory we would set a timer ...... see first line
-      // because sending by WLan takes some time
-      setGlobals();
-      digitalWrite(LED_PIN, LOW);
-      delay(7000);
-      printf("waiting loop: %d\n", loops);
-      delay(45000);
-    } // while
-  } // else 
-
 }
