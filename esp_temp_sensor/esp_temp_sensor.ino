@@ -8,8 +8,8 @@
 #include <DallasTemperature.h>
 
 // need this for the config module 
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
+//#include <WiFi.h>
+//#include <WiFiClientSecure.h>
 #include <ArduinoUniqueID.h>
 
 // global settings
@@ -17,7 +17,7 @@
 
 // ----------------------------
 
-#define SENSOR_PIN 14     // D5
+#define SENSOR_PIN 13     // D7
 
 #define SWITCH_PIN 5
 #define ERROR_PIN 4
@@ -85,6 +85,7 @@ void setGlobals() {
   // This will send the request to the server
   String httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
              + String("&temp1=") + actualTemp1 
+             // + String("&temp1=") + actualTemp1 
              + String (" HTTP/1.1\r\n") + String("Host: ")
              + wifiHandler->GetRealIP() + String("\r\n") + String("Authorization: Basic ")
              + Base64Encode(configParams->GetValue(WIFI_URLUSER), configParams->GetValue(WIFI_URLSECRET)) + String("\r\n\r\n");
@@ -256,6 +257,7 @@ class TempGet
     TempGet(int pin) {
       tempSensorBus = (OneWire*) new OneWire(pin);
       tempSensors = (DallasTemperature*) new DallasTemperature(tempSensorBus);
+      tempSensors->begin();      
     }
     ~TempGet()
     {
@@ -311,7 +313,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        AX WIFI TempReader, Version 2.3 \n");
+  printf("        AX WIFI TempReader, Version 1.0 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 
@@ -402,7 +404,7 @@ void loop() {
       //delay(60*1000*15);
       setGlobals(); 
       // printf("actual tempLimit is %f\n",activeTempLimit);
-      if (!connected) {
+      if (refreshProxy) {
         digitalWrite(ERROR_PIN, LOW);
         delay(1000);
         digitalWrite(ERROR_PIN, HIGH);
@@ -411,10 +413,10 @@ void loop() {
         delay(1000);
         digitalWrite(ERROR_PIN, HIGH);
       }
+      printf("Waiting %d minutes \n", minPerSample);    
       delay(60*1000*minPerSample);
       loops++;
     }    
-    
     //sensors.requestTemperatures();
     //Serial.println(sensors.getTempCByIndex(0));
     delay(10);

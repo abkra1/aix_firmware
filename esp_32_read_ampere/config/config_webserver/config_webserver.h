@@ -6,21 +6,27 @@
 //     to be included and called by setup + loop
 //
 
-// #include "config.h"
+#ifdef ESP_32
 #include <WiFi.h>
+#else
+#include <ESP8266WebServer.h>
+#endif
+
 #include <WiFiClientSecure.h>
 
-
+#ifdef ESP_32
 #include <WebServer.h>
-// attention this needs to be inlcluded in main
-// #include "../config_fileserver/config_fileserver.h"
-
-
-
+#else
+#include <ESP8266WiFi.h>
+#endif
 
 // the one global instance of the webserver
 // has to be global and static for callback handling
+#ifdef ESP_32
 static WebServer*        server;
+#else
+static ESP8266WebServer*        server;
+#endif
 static ConfigParams*     configData;
 static String            hardwareDevice;
 static String            deviceType;
@@ -34,7 +40,7 @@ class WifiConfigWebserver {
   public: 
     WifiConfigWebserver (ConfigParams* inConfigData, String newHwDevice, String newDeviceType)
     {
-      printf("WifiConfigWebserver: v 2.0\n");
+      printf("WifiConfigWebserver: v 2.1\n");
       configData = inConfigData;
       hardwareDevice = newHwDevice;
       deviceType = newDeviceType;
@@ -72,7 +78,11 @@ class WifiConfigWebserver {
     // just really create and start the ap
     void handleConfig()
     {
+#ifdef ESP_32
       server = new WebServer(80);
+#else
+      server = new ESP8266WebServer(80);
+#endif
     
       server->begin();
       

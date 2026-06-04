@@ -5,7 +5,12 @@
 //   configuration local http getter module
 //     to be included and called by setup + loop
 //
+
+#ifdef ESP_32
 #include "mbedtls/base64.h"
+#else
+#include "base64.h"
+#endif
 
 // for time init
 const char* ntpServer = "pool.ntp.org";
@@ -27,12 +32,16 @@ const int   daylightOffset_sec = 0;  //Replace with your daylight offset
 #define WIFI_URLUSER "urluser"
 #define WIFI_URLSECRET "urlsecret"
 
+
+// base 64 implementation 
+//#include <base64_arduino>
 String static Base64Encode(String inStrUser, String inStrPW) {
     unsigned char output[128];
     size_t outlen;
     String encode = inStrUser + String(":") + inStrPW;
     const unsigned char* str = (const unsigned char*) encode.c_str();
-    mbedtls_base64_encode(output, 64, &outlen, str, encode.length());
+#ifdef ESP_32    
+    mbedtls_base64_encode(output, 64, &outlen, str, encode.length());        
     if ((outlen < 1) || (outlen > 127)) {
         printf("error encoding %s\n", encode.c_str());
         return String();
@@ -40,7 +49,12 @@ String static Base64Encode(String inStrUser, String inStrPW) {
     output[outlen] = 0;
     printf("encoded: %s\n", output);
     return String((const char*) output);
+#else
+    return base64::encode(str, encode.length(), false);
+#endif
+
 }
+
 
 
 static void AddWifiParams(ConfigParams* configParams, String devicetype, String deviceid) {
@@ -64,7 +78,7 @@ class WifiGetter
   public:
 
     WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectUserIn, String redirectSecretIn, String urlIn) {
-      printf("WifiGetter: v 1.3\n");
+      printf("WifiGetter: v 2.0\n");
       ssid = newSid;
       password = newPassword;
       defaultUrl = urlIn;
@@ -392,7 +406,7 @@ class WifiGetter
         return false;
     }
 
-
+#ifdef ESP32
     void IRAM_ATTR WiFiEvent(WiFiEvent_t event) {
       switch (event) {
         case WIFI_EVENT_STA_CONNECTED:
@@ -414,6 +428,30 @@ class WifiGetter
           printf("WiFi event: %d\n",event);
           break;
       }
+#else      
+    void IRAM_ATTR WiFiEvent(WiFiEvent_t event) {
+      switch (event) {
+        case EVENT_STAMODE_CONNECTED:
+          printf("connected\n");
+          break;
+        case EVENT_STAMODE_DISCONNECTED:
+          printf("Disconnected from WiFi access point\n");
+          break;
+        case EVENT_SOFTAPMODE_STADISCONNECTED:
+          printf("WiFi client disconnected\n");
+          break;
+        case REASON_AUTH_EXPIRE:
+          printf("WiFi client auth expire\n");
+          break;
+        //case REASON_UNSPECIFIED:
+        //  printf("WiFi client unspecified\n");
+        //  break;
+        default: 
+          printf("WiFi event: %d\n",event);
+          break;
+      }
+#endif      
+      
     }
 
     //

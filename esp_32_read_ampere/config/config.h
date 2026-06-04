@@ -1,5 +1,7 @@
 // just a wrapper for the includes
 // include the webserver module / class
+#define ESP_32
+
 #include "config_filesystem/config_filesystem.h"
 #include "config_params/config_params.h"
 #include "config_webserver/config_webserver.h"

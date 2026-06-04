@@ -8,9 +8,11 @@
 
 // configurtion stuff
 //  saved on local
-#include "FS.h"
+#ifdef ESP_32
 #include <SPIFFS.h>
-
+#else
+#include "FS.h"
+#endif
 
 //
 //
@@ -30,13 +32,16 @@ class FileSystemData {
        FileSystemData():
        configError(false)
        {
-            printf("FileSystemData: v 2.2\n");
+            printf("FileSystemData: v 2.3\n");
             printf("ConfigData() init\n");
-	    //fileDataparams = Params();
-            bool initFlag = SPIFFS.begin(true);  // true = format + create fs if failed
+
+            bool initFlag = SPIFFS.begin();  // true = format + create fs if failed
+
             if (!initFlag) {
+#ifdef ESP_32	    
               printf("ConfigData() init failed, formating fs\n");
 	      initFlag = SPIFFS.begin(true);
+#endif
 	      if (!initFlag) {
 	          printf("ConfigData() format failed\n");
                   configError = true;
