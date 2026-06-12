@@ -53,6 +53,9 @@ WifiGetter* wifiHandler = NULL;
 String idStr = "";
 String typeStr = "AXAMP";
 bool refreshProxy = true;
+#define SENSOR_OFFSET "sensoroffset"
+#define SENSOR_FACTOR "sensorfactor"
+
 
 // this is specific for each gadget and needs to be called to init the data reader
 ConfigParams* GetConfigParameters (String devicetype, String deviceid) {
@@ -64,7 +67,8 @@ ConfigParams* GetConfigParameters (String devicetype, String deviceid) {
     // this is common for all boards 
     AddWifiParams(configParams, devicetype, deviceid);
     // special parameters
-    //configParams->AddParam("", "Redirect-URL", "");
+    configParams->AddParam(SENSOR_OFFSET, "Sensor-Offset", "0.0");
+    configParams->AddParam(SENSOR_FACTOR, "Sensor-Factor", "1.0");
     // return
     return configParams;
 }
@@ -283,7 +287,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        AX WIFI Amperemeter, Version 2.3 \n");
+  printf("        AX WIFI Amperemeter, Version 2.4 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 
@@ -349,19 +353,23 @@ void loop() {
       configServer->runAcessPoint();  // this does not return
   
   } else {
-  // regular mode
+    // regular mode
 
-      setGlobals();
+    setGlobals();
 
-      digitalWrite(LED_PIN, LOW);
-      delay(100);
-      digitalWrite(LED_PIN, HIGH);
-      delay(100);
-      digitalWrite(LED_PIN, LOW);
-      delay(100);
-      digitalWrite(LED_PIN, HIGH);
-      delay(100);
-      digitalWrite(LED_PIN, LOW);
+    // double factor
+    double sensorOffset = configParams->GetValue(SENSOR_OFFSET).toDouble();
+    double sensorFactor = configParams->GetValue(SENSOR_FACTOR).toDouble();
+
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(LED_PIN, LOW);
 
 
     unsigned long currentMillis = millis();
@@ -379,21 +387,23 @@ void loop() {
       delay (1000);
       
       Serial.println("lesen");
-  
+
+      int MAGIC=1480;
+        
       // we read several times and use the average value
-      amps1 = emon1.calcIrms(1480); // Calculate Irms only with magic number
-      amps2 = emon2.calcIrms(1480); // Calculate Irms only with magic number
-      amps3 = emon3.calcIrms(1480); // Calculate Irms only with magic number
-      amps4 = emon4.calcIrms(1480); // Calculate Irms only with magic number
+      amps1 = (emon1.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
+      amps2 = (emon2.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
+      amps3 = (emon3.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
+      amps4 = (emon4.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
       
       size_t i;
       for (i=1;i<MAX_READ;i++) {
         Serial.print(".");
         delay(20);
-        amps1 += emon1.calcIrms(1480); 
-        amps2 += emon2.calcIrms(1480); 
-        amps3 += emon3.calcIrms(1480); 
-        amps4 += emon4.calcIrms(1480); 
+        amps1 += (emon1.calcIrms(MAGIC) * sensorFactor) - sensorOffset; 
+        amps2 += (emon2.calcIrms(MAGIC) * sensorFactor) - sensorOffset;
+        amps3 += (emon3.calcIrms(MAGIC) * sensorFactor) - sensorOffset;
+        amps4 += (emon4.calcIrms(MAGIC) * sensorFactor) - sensorOffset;
       }
       amps1 = amps1 / ((double) MAX_READ);
       amps2 = amps2 / ((double) MAX_READ);
