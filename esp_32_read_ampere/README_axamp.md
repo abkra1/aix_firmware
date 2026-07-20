@@ -47,7 +47,7 @@ Network configuration:
 "WiFi-Passphrase" : Passphrase of the WiFi to connect to (less than 8 chars may cause connection issues)
 
 Command redirect:
-The defice uses a get command to retrieve the real / final hostname and port that should be used to send the data.
+The device uses a get command to retrieve the real / final hostname and port that should be used to send the data.
 This is done since the server may have an IP not published to the DNS.
 The reply is scanned for an xml-tag <axurl>...valie...</axurl>.>
 This hostname is used for the "set" call.
@@ -62,3 +62,7 @@ Data connection:
 "URL-User" : http header basic auth usename if passed, required when "ax-server" is used as backend
 "URL-Passphrase" : http header basic auth password if passed, required when "ax-server" is used as backend
 
+Prometheus oush
+The device can send the data by oush request.
+It uses the "URL" as endpoint. Do not enter anythin in the "redirect-*" config parameters.
+The data is sent at text POSt reqest, one value per line.

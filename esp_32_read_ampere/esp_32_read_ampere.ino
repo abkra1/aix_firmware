@@ -382,7 +382,7 @@ void loop() {
     // If it's been longer then 1000ms since we took a measurement, take one now!
     // if(currentMillis - lastMeasurement > 1000){
     //   nada nada nada jada
-    //   some code for later to make it reall one minute or something
+    //   some code for later to make it real one minute or something
     
     int loops = 0;
     
