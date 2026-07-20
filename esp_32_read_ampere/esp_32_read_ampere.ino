@@ -98,21 +98,27 @@ void setGlobals() {
   //  base64 encoded user:password
   //
 
+  String httpRequest;
   // This will send the request to the server
-  String httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
+  if (configParams->GetBoolValue(WIFI_POST)) {
+      httpRequest = String("device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("\r\n")
+             + String("device_id=") + configParams->GetValue(WIFI_DEVICE_ID) + String("\r\n")
+             + String("amps1=") + String(amps1,4) + String("\r\n")
+             + String("amps2=") + String(amps2,4) + String("\r\n")
+             + String("amps3=") + String(amps3,4) + String("\r\n")
+             + String("amps4=") + String(amps4,4) + String("\r\n");
+
+  }
+  else {
+      httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
              + String("&amps1=") + String(amps1,4) 
              + String("&amps2=") + String(amps2,4)
              + String("&amps3=") + String(amps3,4) 
-             + String("&amps4=") + String(amps4,4) 
-             + String (" HTTP/1.1\r\n") + String("Host: ")
-             + wifiHandler->GetRealIP() + String("\r\n") + String("Authorization: Basic ")
-             + Base64Encode(configParams->GetValue(WIFI_URLUSER), configParams->GetValue(WIFI_URLSECRET)) + String("\r\n\r\n");
-
-
-
+             + String("&amps4=") + String(amps4,4); 
+  }
     
   String line;
-  if (wifiHandler->sendHttpGetRequest(httpRequest, line, refreshProxy)) {
+  if (wifiHandler->sendHttpRequest(httpRequest, line, configParams->GetBoolValue(WIFI_POST), refreshProxy, Base64Encode(configParams->GetValue(WIFI_URLUSER), configParams->GetValue(WIFI_URLSECRET)))) {
     
     printf("-------------------\n");
     printf("request:\n%s\n", httpRequest.c_str());
@@ -287,7 +293,7 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        AX WIFI Amperemeter, Version 2.4 \n");
+  printf("        AX WIFI Amperemeter, Version 2.5 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 

@@ -31,6 +31,7 @@ const int   daylightOffset_sec = 0;  //Replace with your daylight offset
 #define WIFI_URL "url"
 #define WIFI_URLUSER "urluser"
 #define WIFI_URLSECRET "urlsecret"
+#define WIFI_POST "usepost"
 
 
 // base 64 implementation 
@@ -68,6 +69,7 @@ static void AddWifiParams(ConfigParams* configParams, String devicetype, String 
     configParams->AddParam(WIFI_URL, "URL", "unused");
     configParams->AddParam(WIFI_URLUSER, "URL-User", "");
     configParams->AddParam(WIFI_URLSECRET, "URL-Passphrase", "");
+    configParams->AddParam(WIFI_POST, "Push-Values", "");
     
 }
 
@@ -78,7 +80,7 @@ class WifiGetter
   public:
 
     WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectUserIn, String redirectSecretIn, String urlIn) {
-      printf("WifiGetter: v 2.0\n");
+      printf("WifiGetter: v 2.1\n");
       ssid = newSid;
       password = newPassword;
       defaultUrl = urlIn;
@@ -122,9 +124,14 @@ class WifiGetter
 
     //
     //   execute the passed request and return the reply
+    //   wrappers for get and post
     //     bool false on error
 
-    bool sendHttpGetRequest(String htmlRequest, String& htmlReply, bool refreshRedirect) {
+    //bool sendHttpGetRequest(String htmlRequest, String& htmlReply, bool refreshRedirect) {
+    //    return sendHttpRequest(htmlRequest, htmlReply, false, refreshRedirect, String(""));
+    //}
+    
+    bool sendHttpRequest(String htmlRequest, String& htmlReply, bool post, bool refreshRedirect, String auth) {
     
       connect();
     
@@ -146,11 +153,32 @@ class WifiGetter
         return false;
       }
 
+      String realRequest;
+      // get
+      if (!post) {
+          realRequest = String("GET ") + path + htmlRequest;
+	  if (auth != "") {
+	      realRequest += String (" HTTP/1.1\r\n")
+	                     + String("Host: ") + this->GetRealIP() + String("\r\n")
+			     + String("Authorization: Basic ") + auth + String("\r\n\r\n");
+	  }
+          realRequest.replace("//","/");
+          realRequest.replace("//","/");
+          printf("http getter : '%s'", realRequest.c_str());
+      }
+      else {       
+      // post
+          realRequest = String("POST ") + path + String("HTTP/1.1\r\n");
+          realRequest += String("Host: ") + this->GetRealIP() + String("\r\n")
+                     + String("Content-Type: text/plain;charset=utf8\r\n")
+                     + String("Content-Length: ") + String(htmlRequest.length()) + String("\r\n")
+                     + String("Connection: Close\r\n")
+                     + String("\r\n")
+		     + htmlRequest 
+		     + String("\r\n\r\n");
+          printf("http post : '%s'", realRequest.c_str());
+      }
       
-      String realRequest = String("GET ") + path + htmlRequest;
-      realRequest.replace("//","/");
-      realRequest.replace("//","/");
-      printf("http getter : '%s'", realRequest.c_str());
       client.print(realRequest);
       
       delay(5000);

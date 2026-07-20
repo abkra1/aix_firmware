@@ -42,11 +42,7 @@ class ParamSet
   void SetDefaultValue(String inDefault) { 
     default_value = inDefault;
   }
-    
-  String GetValue_unused() { 
-    return value;
-  }
-  
+      
   String GetName() { 
     return name;
   }
@@ -119,6 +115,26 @@ class ConfigParams
         return outValue; 
      }
      return "";
+  }
+  
+  boolean GetBoolValue(const String& inName) {
+     String outValue;
+     if (!GetValue(inName, outValue)) {
+        if ((outValue.length()>0) && (
+	  (outValue[0] == 'x') ||
+	  (outValue[0] == 'X') ||
+	  (outValue[0] == 'Y') ||
+	  (outValue[0] == 'y') ||
+	  (outValue[0] == 'T') ||
+	  (outValue[0] == 't') ||
+	  (outValue[0] == '1') ||
+	  (outValue[0] == 'J') ||
+	  (outValue[0] == 'j'))) {
+	  return true;
+	}
+        return false; 
+     }
+     return false;
   }
     
   bool GetDefault(const String& inName, String& outValue) {
