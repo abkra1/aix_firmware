@@ -101,13 +101,12 @@ void setGlobals() {
   String httpRequest;
   // This will send the request to the server
   if (configParams->GetBoolValue(WIFI_POST)) {
-      httpRequest = String("device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("\r\n")
-             + String("device_id=") + configParams->GetValue(WIFI_DEVICE_ID) + String("\r\n")
-             + String("amps1=") + String(amps1,4) + String("\r\n")
-             + String("amps2=") + String(amps2,4) + String("\r\n")
-             + String("amps3=") + String(amps3,4) + String("\r\n")
-             + String("amps4=") + String(amps4,4) + String("\r\n");
-
+      httpRequest = String("device_type ") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("\r\n")
+             + String("device_id ") + configParams->GetValue(WIFI_DEVICE_ID) + String("\r\n")
+             + String("amps1_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps1,4) + String("\r\n")
+             + String("amps2_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps2,4) + String("\r\n")
+             + String("amps3_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps3,4) + String("\r\n")
+             + String("amps4_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps4,4) + String("\r\n");
   }
   else {
       httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
