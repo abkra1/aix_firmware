@@ -1,39 +1,38 @@
-#include "config.h"
-#if 0
-#include <WiFiClient.h>
-#include <ESP8266WiFiType.h>
-#include <ESP8266WiFiSTA.h>
-#include <WiFiServerSecureBearSSL.h>
-#include <ESP8266WiFiGeneric.h>
-#include <ESP8266WiFiAP.h>
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecureBearSSL.h>
-#include <ESP8266WiFiMulti.h>
-#include <WiFiUdp.h>
-#include <BearSSLHelpers.h>
-#include <CertStoreBearSSL.h>
-#include <WiFiClientSecure.h>
-#include <ESP8266WiFiGratuitous.h>
-#include <WiFiServerSecure.h>
-#include <ArduinoWiFiServer.h>
-#include <WiFiServer.h>
-#include <ESP8266WiFiScan.h>
-#include <NTPClient.h>
-#endif
-// really used wifi stuff
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecure.h>
+
 // pixel stuff
 #include <Adafruit_NeoPixel.h>
 // clock
 #include <time.h>
-
 #include <ArduinoUniqueID.h>
-// include the webserver module / class
-#include "config_filesystem/config_filesystem.h"
-#include "config_webserver/config_webserver.h"
-#include "config_httpget/config_httpget.h"
-#include "FS.h"
+
+// genereic config stuff
+#include "config/config.h"
+
+//
+//  global classes for config interaction
+//
+
+ConfigParams* configParams = NULL;
+WifiGetter* wifiHandler = NULL;
+String idStr = "";
+bool refreshProxy = true;
+#define NUM_LEDS "numleds"
+
+// this is specific for each gadget and needs to be called to init the data reader
+ConfigParams* GetConfigParameters (String devicetype, String deviceid) {
+    if (configParams) {
+        //delete configParams;
+        return configParams;
+    }
+     
+    configParams = new ConfigParams();
+    // this is common for all boards 
+    AddWifiParams(configParams, devicetype, deviceid);
+    // special parameters
+    configParams->AddParam(NUM_LEDS, "Number-of-LEDs", "143");
+
+    return configParams;
+}
 
 
 // globals
@@ -43,7 +42,7 @@
 //  digitalWrite(13, HIGH); // sets the digital pin 13 on
 //  digitalWrite(13, LOW);  // sets the digital pin 13 off
 String hwDeviceType = "AXLEDSTRIP";
-String firmwareVersion = "4.0";
+String firmwareVersion = "4.1";
 
 
 // Declare our NeoPixel strip object:
@@ -598,6 +597,105 @@ class WheelOfFortune {
     
 };
 
+//
+//   use the strip to show the temperature
+//
+//   params:
+//     number of leds
+//     green area in %
+//     yellow area in %
+//     red area in %
+
+class PercentageStrip {
+
+  public:
+    PercentageStrip(Adafruit_NeoPixel& strip, size_t ledCount, bool reverse, size_t green_area, size_t yellow_area, size_t red_area, float percentageValue):
+        numLeds(ledCount),
+        reverseDraw(reverse),
+        greenArea(green_area),
+        yellowArea(yellow_area),
+        redArea(red_area),
+        level(33)
+    {
+      
+      init();
+      showPercentageValue(strip, percentageValue);
+    }
+
+    void init()
+    {
+      greenCount = float(numLeds)/100.0*float(greenArea);
+      yellowCount = float(numLeds)/100.0*float(yellowArea);
+      // no need all else is red ... redCount = size_t(float(ledCount)/(100.0*float(redArea))) + yellowCount;    
+      redCount = float(int(numLeds));
+      printf("percentage absolute levels %f %f %f\n", greenCount, yellowCount, redCount);
+    }
+
+    void showPercentageValue(Adafruit_NeoPixel& strip, float percentageValue) {
+        level = percentageValue * float(numLeds) / 100.0;
+        printf("level: %f : %f\n", percentageValue, level);
+        strip.clear(); 
+        size_t pixel;
+        for (pixel = 0; pixel < numLeds; pixel++) {
+          size_t red = 0;
+          size_t green = 0;
+          size_t blue = 0;
+          size_t col_idx = NUM_COLORS;
+          if (level < 0) {
+              // below zero all green
+              col_idx = COL_GREEN;
+          }
+          else if (level > numLeds) {
+              // above 100 all red
+              col_idx = COL_RED;
+          }
+          else if (pixel > level) {
+              // do not paint anything above the level
+              // has been set to "off" by strip.clear()
+              col_idx = NUM_COLORS;
+          }
+          else if (pixel < greenCount) {
+              // green area is the lowest
+              col_idx = COL_GREEN;
+          }
+          else if (pixel < yellowCount) {
+              // yellow in between
+              col_idx = COL_YELLOW;
+
+          }
+          else if (pixel < redCount) {
+              // everything else
+              col_idx = COL_RED;
+          }
+          
+          if (col_idx < NUM_COLORS) {
+              red = Colors[col_idx][COL_R];
+              green = Colors[col_idx][COL_G];
+              blue = Colors[col_idx][COL_B];
+              strip.setPixelColor(pixel,Adafruit_NeoPixel::Color(red, green, blue));
+              //printf("setting %d to %d\n", pixel, col_idx);
+          } 
+        }
+        strip.show();
+    }
+
+
+
+  private:
+
+    size_t numLeds;
+    size_t greenArea;
+    size_t yellowArea;
+    bool reverseDraw;
+    size_t redArea;
+    float level;
+    
+    float greenCount;
+    float yellowCount;
+    float redCount;
+
+};
+
 
 
 //
@@ -608,8 +706,6 @@ class WheelOfFortune {
 //   WIFI shit ... we make it global
 //
 
-bool refreshProxy = true;
-WifiGetter* getter = NULL;
 String deviceID = "empty";
 String hardwareDeviceID ="empty";
 
@@ -625,6 +721,7 @@ String oldWheels = "x";
 String oldBrightness = "x";
 String oldTimezone = "x";
 String oldShowSecs = "x";
+String oldPercentageValue = "x";
 // set something save
 bool startNow = true;
 size_t numberWheels = 4;
@@ -632,7 +729,7 @@ size_t brightness = 200;
 int timezone = 2;
 int numLeds = LED_COUNT;
 int showSecs = 1;
-
+float percentageValue = 20.0;
 
 /*
 String parseHtml(String reply, String tag, String def) {
@@ -699,30 +796,30 @@ bool connect() {
 void setGlobals () {
   
   // we will move this later ... just somewhere else
-  ConfigData* wifiData = new ConfigData();
-  
+  ConfigParams* configParamsSet = GetConfigParameters (hwDeviceType, hardwareDeviceID);
+
   printf("setGlobals: init\n");
   // digitalWrite(ERROR_PIN,HIGH);
 
-  if (getter == NULL) {
-      getter = new WifiGetter(wifiData->getWifiSid(), 
-                              wifiData->getWifiPassword(), 
-                              wifiData->getValue("redirectwebserver"), 
-                              wifiData->getValue("redirectwebserverport").toInt(), 
-                              wifiData->getValue("redirectwebserverpage"),
-                              wifiData->getValue("redirectwebserversecret"));
+  if (wifiHandler == NULL) {
+    wifiHandler = new WifiGetter(configParamsSet->GetValue(WIFI_SSID),
+                            configParamsSet->GetValue(WIFI_PASS),
+                            configParamsSet->GetValue(WIFI_REDIRECTURL),
+                            configParamsSet->GetValue(WIFI_REDIRECTUSER),
+                            configParamsSet->GetValue(WIFI_REDIRECTSECRET),
+                            configParamsSet->GetValue(WIFI_URL));
   }
-  
+
   //printf("setGlobals: html done reading: %s\n", getTimestring());
   //Serial.print(line);
   
-  String  httpGetRequest = String("/params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") +
-               String("Host: ") + getter->GetRealIP() + String("\r\n") + 
-               String("Authorization: Basic ") + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
+  String  httpGetRequest = String("/params_") + hwDeviceType + String("_") + configParamsSet->GetValue(WIFI_DEVICE_ID) + String(".html HTTP/1.1\r\n") +
+               String("Host: ") + wifiHandler->GetRealIP() + String("\r\n") + 
+               String("Authorization: Basic ") + Base64Encode(configParamsSet->GetValue(WIFI_URLUSER), configParamsSet->GetValue(WIFI_URLSECRET)) + String("\r\n\r\n");
 
   String line;
   
-  if (getter->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
+  if (wifiHandler->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
     
     printf("-------------------\n");
     printf("request:\n%s\n", httpGetRequest.c_str());
@@ -731,12 +828,13 @@ void setGlobals () {
     printf("-------------------\n");
 
     if (line.length() > 300) {
-      String newMode = getter->parseHtml(line,String("mode"),oldMode);
-      String newStart = getter->parseHtml(line,String("start"),oldStart);
-      String newWheels = getter->parseHtml(line,String("wheels"),oldWheels);
-      String newBrightness = getter->parseHtml(line,String("brightness"),oldBrightness);
-      String newTimezone = getter->parseHtml(line,String("timezone"),oldTimezone);
-      String newShowSecs = getter->parseHtml(line,String("showsecs"),oldShowSecs);
+      String newMode = wifiHandler->parseHtml(line,String("mode"),oldMode);
+      String newStart = wifiHandler->parseHtml(line,String("start"),oldStart);
+      String newWheels = wifiHandler->parseHtml(line,String("wheels"),oldWheels);
+      String newBrightness = wifiHandler->parseHtml(line,String("brightness"),oldBrightness);
+      String newTimezone = wifiHandler->parseHtml(line,String("timezone"),oldTimezone);
+      String newShowSecs = wifiHandler->parseHtml(line,String("showsecs"),oldShowSecs);
+      String newPercentageValue = wifiHandler->parseHtml(line,String("percentage"),oldPercentageValue);
       // printf("new: %s %s %s\n",newMode, newStart, newWheels);
       
       if (newMode != oldMode) {
@@ -780,6 +878,14 @@ void setGlobals () {
           timezone = offset;
         }
         printf("setting summer/wintertime offset to %d\n",timezone);
+      }
+      if (newPercentageValue != oldPercentageValue) {
+        oldPercentageValue = newPercentageValue;
+        float percentage = newPercentageValue.toFloat();
+        if ((percentage > -1.0) && (percentage < 101.0)) {
+          percentageValue = percentage;
+        }
+        printf("setting percenatage to %f\n",percentageValue);
       }
       digitalWrite(ERROR_PIN,LOW);
     }    
@@ -842,12 +948,12 @@ void setup() {
   digitalWrite(ERROR_PIN,HIGH);
   //printf("setup done\n");
   
-  ConfigData numLedData = ConfigData();
+  ConfigParams* numLedData = GetConfigParameters (hwDeviceType, hardwareDeviceID);
 
   // digitalWrite(ERROR_PIN,HIGH);
 
   // only set if reasonably configured
-  int numLedsTemp = numLedData.getValue("numleds").toInt();
+  int numLedsTemp = configParams->GetValue(NUM_LEDS).toInt();
   if ((numLedsTemp > 12) && (numLedsTemp < 320)) {
     numLeds = numLedsTemp;
     printf("leds now:%d\n", numLeds);
@@ -906,8 +1012,8 @@ void loop() {
      printf("enter config mode\n");
      // create nec config instance and
      // open access point
-     ConfigData* confData = new ConfigData();
-     WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDeviceID, hwDeviceType);
+     ConfigParams* configParamsConf = GetConfigParameters (hwDeviceType, hardwareDeviceID);
+     WifiConfigWebserver* configServer = new WifiConfigWebserver(configParamsConf, hardwareDeviceID, hwDeviceType);
      configServer->runAcessPoint(); // this does not return
   }
   else {
@@ -1002,6 +1108,33 @@ void loop() {
             }
           }
         
+        }
+    }     
+    else if (mode == "PERCENT") {
+        printf("start ledPercentage\n");
+        // temps
+        bool reverse = false;
+        size_t greenArea = 60;
+        size_t yellowArea = 80;
+        size_t redArea = 100;
+        
+        PercentageStrip percentageStrip(strip, numLeds, reverse, greenArea, yellowArea, redArea, percentageValue);
+        startNow = false;
+        while (loops < 10000) {
+          // wait 5 minutes
+          delay(delayMs + showSecs * 60000);
+          loops++;
+          // this will read the temp value
+          setGlobals();
+          {
+            if (strip.getBrightness() != brightness) {      
+              strip.setBrightness(brightness); 
+            }           
+            if (mode != "PERCENT" ) {
+              return;
+            }
+          }
+          percentageStrip.showPercentageValue(strip, percentageValue);
         }
     }     
     else if (mode == "TWINCLE") {

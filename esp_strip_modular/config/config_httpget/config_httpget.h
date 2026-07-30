@@ -1,10 +1,16 @@
-#ifndef H_CONFIG_WIFIGETTER
-#define H_CONFIG_WIFIGETTER
+#ifndef H_CONFIG_HTTPGET
+#define H_CONFIG_HTTPGET
+
 //
 //   configuration local http getter module
 //     to be included and called by setup + loop
 //
 
+#ifdef ESP_32
+#include "mbedtls/base64.h"
+#else
+#include "base64.h"
+#endif
 
 // for time init
 const char* ntpServer = "pool.ntp.org";
@@ -12,31 +18,91 @@ const long  gmtOffset_sec = -3600;   //Replace with your GMT offset (seconds)
 const int   daylightOffset_sec = 0;  //Replace with your daylight offset 
 
 
+//
+//  call to add the definitions necessary to handle the WiFi stuff and redirect
+//
+#define WIFI_SSID "wifissid"
+#define WIFI_PASS "wifipass"
+#define WIFI_DEVICE_ID "deviceid"
+#define WIFI_DEVICE_TYPE "devicetype"
+#define WIFI_REDIRECTURL "redirecturl"
+#define WIFI_REDIRECTUSER "redirectuser"
+#define WIFI_REDIRECTSECRET "redirectsecret"
+#define WIFI_URL "url"
+#define WIFI_URLUSER "urluser"
+#define WIFI_URLSECRET "urlsecret"
+
+
+// base 64 implementation 
+//#include <base64_arduino>
+String static Base64Encode(String inStrUser, String inStrPW) {
+    unsigned char output[128];
+    size_t outlen;
+    String encode = inStrUser + String(":") + inStrPW;
+    const unsigned char* str = (const unsigned char*) encode.c_str();
+#ifdef ESP_32    
+    mbedtls_base64_encode(output, 64, &outlen, str, encode.length());        
+    if ((outlen < 1) || (outlen > 127)) {
+        printf("error encoding %s\n", encode.c_str());
+        return String();
+    }
+    output[outlen] = 0;
+    printf("encoded: %s\n", output);
+    return String((const char*) output);
+#else
+    return base64::encode(str, encode.length(), false);
+#endif
+
+}
+
+
+
+static void AddWifiParams(ConfigParams* configParams, String devicetype, String deviceid) {
+    configParams->AddParam(WIFI_SSID, "WiFi-SSID", "");
+    configParams->AddParam(WIFI_PASS, "WiFi-Passphrase", "");
+    configParams->AddParam(WIFI_DEVICE_ID, "WiFi-DeviceID", deviceid);
+    configParams->AddParam(WIFI_DEVICE_TYPE, "WiFi-DeviceType", devicetype);
+    configParams->AddParam(WIFI_REDIRECTURL, "Redirect-URL", "");
+    configParams->AddParam(WIFI_REDIRECTUSER, "Redirect-URL-User", "");
+    configParams->AddParam(WIFI_REDIRECTSECRET, "Redirect-URL-Passphrase", "");
+    configParams->AddParam(WIFI_URL, "URL", "unused");
+    configParams->AddParam(WIFI_URLUSER, "URL-User", "");
+    configParams->AddParam(WIFI_URLSECRET, "URL-Passphrase", "");
+    
+}
+
 
 class WifiGetter
 {
 
   public:
 
-    WifiGetter(String newSid, String newPassword, String redirectHostIn, int redirectPortIn, String redirectPageIn, String redirectSecretIn) {
-   
+    WifiGetter(String newSid, String newPassword, String redirectUrlIn, String redirectUserIn, String redirectSecretIn, String urlIn) {
+      printf("WifiGetter: v 2.0\n");
       ssid = newSid;
       password = newPassword;
+      defaultUrl = urlIn;
       if ((ssid == "") || (password.length() < 8)) {
-        printf("illegal ssid <%s> or passowrd (min 8 chars) <%s> \n", ssid.c_str(), password.c_str());
-       
+        printf("illegal ssid <%s> or passowrd (min 8 chars) <%s> \n", ssid.c_str(), password.c_str());       
       }
       
-      redirectHost = redirectHostIn;
-      redirectPort = redirectPortIn;
-      redirectPage = redirectPageIn;
-      redirectSecret = redirectSecretIn;
-      
+      if (redirectUrlIn.length() > 5) {
+        // split redirect url
+        parseUrl(redirectUrlIn, redirectHost, redirectPort, redirectPage);
+	if ((redirectUserIn != "") && (redirectSecretIn != "")) {
+            redirectSecretBase64 = Base64Encode(redirectUserIn, redirectSecretIn);
+	}
+      }
+      else {
+        printf("using direct connection to %s\n", urlIn.c_str()); 
+	parseUrl(urlIn, host, port, path);
+      }
     }
    
    
     // simple call to extract all between two xml tags
     //   does not really need an instance
+    // will return the passed def as default
     String parseHtml(String reply, String tag, String def) {
       String tagStart = String("<"+tag+">");
       String tagEnd = String("</"+tag+">");
@@ -98,7 +164,6 @@ class WifiGetter
       }
 
       client.stop();
-      delete wifiData;
  
       // cleanup html quotes
       // TODO: use a real quoting function
@@ -138,6 +203,29 @@ class WifiGetter
        return ip.toString();
     }
 
+    void listNetworks() {
+      // scan for nearby networks:
+      Serial.println("** Scan Networks **");
+      int numSsid = WiFi.scanNetworks();
+      if (numSsid == -1) {
+	Serial.println("Couldn't get any wifi connection");
+	return;
+      }
+
+      // print the list of networks seen:
+      Serial.print("number of available networks:");
+      Serial.println(numSsid);
+
+      // print the network number and name for each network found:
+      for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+	Serial.print(thisNet);
+	Serial.print(") <");
+	Serial.print(WiFi.SSID(thisNet));
+	Serial.print("> Signal: ");
+	Serial.print(WiFi.RSSI(thisNet));
+	Serial.println(" dBm");
+      }
+    }
 
 
   private:
@@ -153,7 +241,9 @@ class WifiGetter
       }
       WiFi.disconnect();
       delay (1000); // this is async and give the router some time
-      
+      //WiFi.mode(WIFI_STA);// we are a client !
+      //delay (100);
+      //WiFi.onEvent(WiFiEvent);
       printf("Wifi init\n");
       size_t wait = 0;  
       WiFi.begin(ssid.c_str(), password.c_str());
@@ -172,7 +262,7 @@ class WifiGetter
     
         return false;
       }
-      printf("failed: %d \n", WiFi.status());
+      printf("wifi init/connect failed, retcode: %d \n", WiFi.status());
       return true;
     }
 
@@ -182,33 +272,32 @@ class WifiGetter
     //   returns false on error
   
     bool getIPViaRedirectHost() {
-    
-      // I think we can omit this in later builds
-      // TODO: delete       
-      if (ssid == "noldor") {
-            host = "192.168.93.13";
-	    port = 1817;
-	    path = "";
-            return true;
+      
+      // just skip redirect at all
+      if (redirectHost.length() < 4) {
+          printf("skipping redirect\n");
+          return true;
       }
-  
+      
       WiFiClientSecure redirectClient;
       redirectClient.setInsecure(); // we have no 1:1 root certs here (many domains for one IP)
       String myHost = redirectHost;
-      String mySecret = redirectSecret;
       printf("redirect host: %s\n",myHost.c_str());
+      
       if (!redirectClient.connect(myHost.c_str(), redirectPort)) {
         String message = String("redirect connection to ") + myHost + String(" : ") + String(redirectPort) + String(" failed");
-	    Serial.println(message.c_str());
+	Serial.println(message.c_str());
         return false;
       }
   
       // This will send the request to the server
       // and use the redirect secret
       String req = String("GET /") + String(redirectPage) + String(" HTTP/1.1\r\n") 
-                   + String("Host: ") + myHost + String("\r\n")
-                  // + String("Authorization: Basic ") + mySecret + String("\r\n")
-                   + String("Connection: close\r\n\r\n");
+                   + String("Host: ") + myHost + String("\r\n");
+      if (redirectSecretBase64 != "") {
+          req += String("Authorization: Basic ") + redirectSecretBase64 + String("\r\n");
+      }
+      req += String("Connection: close\r\n\r\n");
       
       // send it
       // attention the webserver is very allergic against double slashes (//)
@@ -259,10 +348,25 @@ class WifiGetter
       //printf("\n");
       if (line.length() > 100) {
         // make this configurable .... naaa just create an own redirect page      
-        String myUrl = parseHtml(line,String("aixurl"),redirectHost + String(redirectPort));
-        
-        printf("aixurl before '%s'\n", myUrl.c_str());
+        String myUrl = parseHtml(line,String("axurl"),defaultUrl);
+        	
+        printf("raw reddirect-url before '%s'\n", myUrl.c_str());	
 
+        if (parseUrl(myUrl, host, port, path)) {
+	    return true;
+	} 
+
+      }
+      Serial.println("redirect getting IP failed");
+      return false;
+    }
+
+
+    bool parseUrl(const String& url, String& host, int& port, String& path) {
+    
+        printf("raw reddirect-url before '%s'\n", url.c_str());
+	
+        String myUrl = url;
         myUrl.replace("https://","");
         myUrl.replace("http://",""); // we do not support http anymore ...
         
@@ -290,18 +394,64 @@ class WifiGetter
             myPath = myUrl.substring(slash);        
         }
         
-        printf("redirect extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
+        printf("redirect result extraction: host:'%s' port:'%s', path :'%s'\n",myHost.c_str(), myPort.c_str(), myPath.c_str());
         
-	    if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
+	if ((atoi(myPort.c_str()) > 40) && (myHost.length() > 8)) {
 	        port = atoi(myPort.c_str());
 	        host = myHost;
                 path = myPath;            
 	        return true;
-	    }
-         
+	}
+	printf("redirect parsing URL/IP failed\n");
+        return false;
+    }
+
+#ifdef ESP32
+    void IRAM_ATTR WiFiEvent(WiFiEvent_t event) {
+      switch (event) {
+        case WIFI_EVENT_STA_CONNECTED:
+          printf("connected\n");
+          break;
+        case WIFI_EVENT_STA_DISCONNECTED:
+          printf("Disconnected from WiFi access point\n");
+          break;
+        case WIFI_EVENT_AP_STADISCONNECTED:
+          printf("WiFi client disconnected\n");
+          break;
+        case WIFI_REASON_AUTH_EXPIRE:
+          printf("WiFi client auth expire\n");
+          break;
+        case WIFI_REASON_UNSPECIFIED:
+          printf("WiFi client unspecified\n");
+          break;
+        default: 
+          printf("WiFi event: %d\n",event);
+          break;
       }
-      Serial.println("redirect getting IP failed");
-      return false;
+#else      
+    void IRAM_ATTR WiFiEvent(WiFiEvent_t event) {
+      switch (event) {
+        case EVENT_STAMODE_CONNECTED:
+          printf("connected\n");
+          break;
+        case EVENT_STAMODE_DISCONNECTED:
+          printf("Disconnected from WiFi access point\n");
+          break;
+        case EVENT_SOFTAPMODE_STADISCONNECTED:
+          printf("WiFi client disconnected\n");
+          break;
+        case REASON_AUTH_EXPIRE:
+          printf("WiFi client auth expire\n");
+          break;
+        //case REASON_UNSPECIFIED:
+        //  printf("WiFi client unspecified\n");
+        //  break;
+        default: 
+          printf("WiFi event: %d\n",event);
+          break;
+      }
+#endif      
+      
     }
 
     //
@@ -317,10 +467,11 @@ class WifiGetter
     int port;
     IPAddress ip;
     
+    String defaultUrl;
     String redirectHost;
     int redirectPort;
     String redirectPage;
-    String redirectSecret;
+    String redirectSecretBase64;
 
 };
 
