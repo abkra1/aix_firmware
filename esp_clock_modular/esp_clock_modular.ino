@@ -141,7 +141,7 @@ String getTimesInt(int timeZone) {
 //
 class LedClock {
 public:
-  LedClock(size_t numLedsIn, int timeZoneIn, bool circleIn, size_t colorIn)
+  LedClock(size_t numLedsIn, int timeZoneIn, bool circleIn, size_t colorIn, size_t msgColIn)
     : circle(circleIn),
       lightBefore(false),
       numLeds(numLedsIn),
@@ -149,11 +149,12 @@ public:
       minute(10),
       second(0),
       fraction(0.0),
-      timeZone(timeZoneIn) {
+      timeZone(timeZoneIn),
+      message("") {
     factor = ((float)numLeds) / 60.0;
     SetTime(false);
     lastTimeStr = "";
-    setColor(colorIn);
+    setColor(colorIn, msgColIn);
   };
   ~LedClock(){};
 
@@ -189,21 +190,37 @@ public:
     String timeStr = getTimestring(timeZone);
 
     if (lastTimeStr != timeStr) {
-      printf(String("Timestr: " + timeStr + "\n").c_str());
-      lastTimeStr = timeStr;
       matrix.fillScreen(0);
-      matrix.setTextColor(matrix.Color(colorR, colorG, colorB));
       matrix.setCursor(1, 0);
-      matrix.print(timeStr);
+
+      // check if we have amessage and we are at a 5 minute "display"
+      if ((message.length() > 1) && (timeStr[4] == '0')) {
+        matrix.setTextColor(matrix.Color(colorMsgR, colorMsgG, colorMsgB));
+        matrix.print(message);
+      }
+      else {   
+        matrix.setTextColor(matrix.Color(colorR, colorG, colorB));
+        matrix.print(timeStr);
+      }
       matrix.show();
     }
   }
+
+  void SetDisplay(String messageIn) {
+      if (messageIn.length() > 5) {
+        message = messageIn.substring(0,4);
+      }
+      else {
+        message = messageIn;
+      }
+  }
+
 
   size_t getColor() {
     return color;
   }
 
-  void setColor(size_t newColor) {
+  void setColor(size_t newColor, size_t newMsgColor) {
 
     color = newColor;
 
@@ -232,8 +249,37 @@ public:
       colorG = Colors[COL_WHITE][COL_G];
       colorB = Colors[COL_WHITE][COL_B];
     }
-  }
 
+    colorMsg = newMsgColor;
+
+    if (colorMsg == RANDOM_COLOR) {
+
+      colorMsgR = random(100);
+      colorMsgG = random(100);
+      colorMsgB = random(100);
+
+      // prefer 1 color
+      int tint = random(3);
+      if (tint == 0) {
+        colorMsgR = 2 * colorMsgR;
+      } else if (tint == 1) {
+        colorMsgG = 2 * colorMsgG;
+      } else if (tint == 2) {
+        colorMsgB = 2 * colorMsgB;
+      }
+
+    } else if (colorMsg < NUM_COLORS) {
+      colorMsgR = Colors[colorMsg][COL_R];
+      colorMsgG = Colors[colorMsg][COL_G];
+      colorMsgB = Colors[colorMsg][COL_B];
+    } else {
+      colorMsgR = Colors[COL_WHITE][COL_R];
+      colorMsgG = Colors[COL_WHITE][COL_G];
+      colorMsgB = Colors[COL_WHITE][COL_B];
+    }
+  }
+  
+#if 0
   void Next(int msWaitIn, Adafruit_NeoPixel& strip) {
     UpdTime(msWaitIn);
     // hour in 12 format
@@ -286,7 +332,7 @@ public:
     // now show it
     strip.show();
   }
-
+#endif
   void SetTime(bool skipSeconds) {
     time_t rawtime;
     struct tm* timeinfo;
@@ -377,6 +423,10 @@ private:
   int colorR;
   int colorG;
   int colorB;
+  size_t colorMsg;
+  int colorMsgR;
+  int colorMsgG;
+  int colorMsgB;
 
   int hour;
   int minute;
@@ -384,7 +434,7 @@ private:
   float fraction;
   float factor;
   int timeZone;
-
+  String message;
   // bool hadAlert;
 };
 
@@ -724,15 +774,15 @@ void setGlobals() {
       String newMessage = wifiHandler->parseHtml(line, String("message"), oldMessage);
 
       // printf("new: %s %s %s\n",newMode, newStart, newWheels);
-#if 0    
+
       // mode is switched my new string
       String newMode = wifiHandler->parseHtml(line,String("mode"),oldMode);
+
       if (newMode != oldMode) {
         oldMode = newMode;
         mode = newMode;
         printf("setting mode to %s\n",mode);
       }
-#endif
 
       if (newTimezone != oldTimezone) {
         oldTimezone = newTimezone;
@@ -760,7 +810,8 @@ void setGlobals() {
         if ((value >= 0) && (value <= RANDOM_COLOR)) {
           msgColor = value;
         }
-        printf("setting message color to %d\n", msgColor);        
+        printf("setting message color to %d\n", msgC
+        olor);        
       }
 
       if (newBrightness != oldBrightness) {
@@ -783,7 +834,7 @@ void setGlobals() {
       }
 #if 0
       // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
-      if (newMsgTime != oldMsgTime) {
+      if (newMsgTime != oldMsgTime)) {
         oldMsgTime = newMsgTime;
         // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
         if ((oldMsgTime > "220221200911") && (oldMsgTime < "420221200911")) {
@@ -821,8 +872,9 @@ void setGlobals() {
       if (newMessage != oldMessage) {
         oldMessage = newMessage;
         printf("setting message to %s\n", oldMessage.c_str());
-        if (msgCount > 0) {
+        if ((msgCount > 0) && (mode == "CLOCK")) {
           mode = "MESSAGE";
+          oldMode == mode;
           printf("setting mode to MESSAGE\n");
         }
         msgCount++; 
@@ -923,7 +975,7 @@ void loop() {
   matrix.setTextWrap(false);
 
   ConfigParams* configParamsConf = GetConfigParameters (hwDeviceType, hardwareDeviceID);
-  
+
   //   15 sec intro
   //printf("intro run\n");
   int i = 0;
@@ -1002,27 +1054,32 @@ void loop() {
             }
           }
         }
-      } else if (mode == "CLOCK") {
+      } else if ((mode == "CLOCK") || (mode == "CLOCKDISPLAY")) {
         loops = 0;
         printf("start ledClock\n");
         // clock
         //  1: number LEDs to use
         //  2: seconds leave trace
-        LedClock ledClock(LED_COUNT, timezone, true, clockColor);
+        LedClock ledClock(LED_COUNT, timezone, true, clockColor, msgColor);
 
-        while (mode == "CLOCK") {
+        while ((mode == "CLOCK") || (mode == "CLOCKDISPLAY")) {
           // wait 1/10 sec
           delay(delayMs);
           ledClock.Next(delayMs, matrix);
           loops++;
           if ((loops % 3000) == 0) {
             setGlobals();
+            if (mode == "CLOCKDISPLAY") {
+                ledClock.SetDisplay(oldMessage);
+            } else {
+                ledClock.SetDisplay("");
+            }
             if (matrix.getBrightness() != brightness) {
               matrix.setBrightness(brightness);
             }
             //if (ledClock.getColor() != clockColor) {
             //  using RANDOM_COLOR allow to to change every 5-6 minutes
-            ledClock.setColor(clockColor);
+            ledClock.setColor(clockColor, msgColor);
             //}
           }
           if ((loops % 300) == 0) {
