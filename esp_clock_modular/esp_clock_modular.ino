@@ -194,19 +194,22 @@ public:
       matrix.setCursor(1, 0);
 
       // check if we have amessage and we are at a 5 minute "display"
-      if ((message.length() > 1) && (timeStr[4] == '0')) {
+      if ((message.length() > 1) && ((timeStr[4] == '0') || (timeStr[4] == '5'))) {
         matrix.setTextColor(matrix.Color(colorMsgR, colorMsgG, colorMsgB));
         matrix.print(message);
+        // printf("message %s\n", message.c_str());
       }
       else {   
         matrix.setTextColor(matrix.Color(colorR, colorG, colorB));
         matrix.print(timeStr);
+        // printf("time %s %c\n", timeStr.c_str(), timeStr[4]);
       }
       matrix.show();
     }
   }
 
   void SetDisplay(String messageIn) {
+      printf("setting message to: ", messageIn.c_str());
       if (messageIn.length() > 5) {
         message = messageIn.substring(0,4);
       }
@@ -781,7 +784,7 @@ void setGlobals() {
       if (newMode != oldMode) {
         oldMode = newMode;
         mode = newMode;
-        printf("setting mode to %s\n",mode);
+        printf("setting mode to %s\n",mode.c_str());
       }
 
       if (newTimezone != oldTimezone) {
@@ -810,8 +813,7 @@ void setGlobals() {
         if ((value >= 0) && (value <= RANDOM_COLOR)) {
           msgColor = value;
         }
-        printf("setting message color to %d\n", msgC
-        olor);        
+        printf("setting message color to %d\n", msgColor);        
       }
 
       if (newBrightness != oldBrightness) {
