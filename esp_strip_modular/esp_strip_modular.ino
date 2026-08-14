@@ -731,23 +731,6 @@ int numLeds = LED_COUNT;
 int showSecs = 1;
 float percentageValue = 20.0;
 
-/*
-String parseHtml(String reply, String tag, String def) {
-  String tagStart = String("<"+tag+">");
-  String tagEnd = String("</"+tag+">");
-  String value = def;
-  int posStart = reply.indexOf(tagStart);
-  int posEnd = reply.indexOf(tagEnd);
-  //printf("check %d tag: %s %d-%d len: %d\n",reply.length(), tag, posStart, posEnd, tagStart.length());
-  
-  if ((posStart > -1) && ((posStart + tagStart.length()) < posEnd) && (posEnd < reply.length())) {
-    value = reply.substring(posStart + tagStart.length(), posEnd);
-    //printf("Tag: %s Val: #%s#\n",tag,value);
-  }
-  return value;
-  
-}
-*/
 
 // for debugging return time string
 
@@ -764,30 +747,6 @@ String getTimestring() {
   
 }
 
-/*
-bool connect() {
-
-  printf("Wifi init\n");
-  size_t wait = 0;  
-  WiFi.begin(ssid, password);
-  while ((WiFi.status() != WL_CONNECTED) && (wait < 30)) {
-    wait++;
-    //printf("connecting: %d \n", wait);
-    delay(500);
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    IPAddress ip = WiFi.localIP();
-    Serial.print("IP Address: ");
-    Serial.println(ip);
-
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-    printf("time: %s \n", getTimestring());
-    return false;
-  }
-  printf("failed: %d \n", WiFi.status());
-  return true;
-}
-*/
 
 // 
 //   this si the init call 
