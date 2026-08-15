@@ -211,7 +211,7 @@ public:
   void SetDisplay(String messageIn) {
       printf("setting message to: ", messageIn.c_str());
       if (messageIn.length() > 5) {
-        message = messageIn.substring(0,4);
+        message = messageIn.substring(0,5);
       }
       else {
         message = messageIn;
@@ -678,7 +678,7 @@ WifiGetter* wifiHandler = NULL;
 bool refreshProxy = true;
 
 String hwDeviceType = "AXCLOCK";
-String firmwareVersion = "5.2";
+String firmwareVersion = "6.1";
 
 String deviceID = "empty";
 String hardwareDeviceID ="empty";
