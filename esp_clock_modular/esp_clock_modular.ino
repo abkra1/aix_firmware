@@ -1,28 +1,4 @@
-#include "config.h"
-#if 0
-#include <WiFiClient.h>
-#include <ESP8266WiFiType.h>
-#include <ESP8266WiFiSTA.h>
-#include <WiFiServerSecureBearSSL.h>
-#include <ESP8266WiFiGeneric.h>
-#include <ESP8266WiFiAP.h>
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecureBearSSL.h>
-#include <ESP8266WiFiMulti.h>
-#include <WiFiUdp.h>
-#include <BearSSLHelpers.h>
-#include <CertStoreBearSSL.h>
-#include <WiFiClientSecure.h>
-#include <ESP8266WiFiGratuitous.h>
-#include <WiFiServerSecure.h>
-#include <ArduinoWiFiServer.h>
-#include <WiFiServer.h>
-#include <ESP8266WiFiScan.h>
-#include <NTPClient.h>
-#endif
-// really used wifi stuff
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecure.h>
+
 // pixel stuff
 #include <Adafruit_NeoPixel.h>
 #include <Adafruit_NeoMatrix.h>
@@ -32,14 +8,8 @@
 
 #include <ArduinoUniqueID.h>
 
-// include the webserver module / class
-#include "config_filesystem/config_filesystem.h"
-#include "config_webserver/config_webserver.h"
-#include "config_httpget/config_httpget.h"
-
-// configurtion stuff
-//  saved on local
-#include "FS.h"
+// genereic config stuff
+#include "config/config.h"
 
 // globals
 //
@@ -171,7 +141,7 @@ String getTimesInt(int timeZone) {
 //
 class LedClock {
 public:
-  LedClock(size_t numLedsIn, int timeZoneIn, bool circleIn, size_t colorIn)
+  LedClock(size_t numLedsIn, int timeZoneIn, bool circleIn, size_t colorIn, size_t msgColIn)
     : circle(circleIn),
       lightBefore(false),
       numLeds(numLedsIn),
@@ -179,11 +149,12 @@ public:
       minute(10),
       second(0),
       fraction(0.0),
-      timeZone(timeZoneIn) {
+      timeZone(timeZoneIn),
+      message("") {
     factor = ((float)numLeds) / 60.0;
     SetTime(false);
     lastTimeStr = "";
-    setColor(colorIn);
+    setColor(colorIn, msgColIn);
   };
   ~LedClock(){};
 
@@ -219,21 +190,40 @@ public:
     String timeStr = getTimestring(timeZone);
 
     if (lastTimeStr != timeStr) {
-      printf(String("Timestr: " + timeStr + "\n").c_str());
-      lastTimeStr = timeStr;
       matrix.fillScreen(0);
-      matrix.setTextColor(matrix.Color(colorR, colorG, colorB));
       matrix.setCursor(1, 0);
-      matrix.print(timeStr);
+
+      // check if we have amessage and we are at a 5 minute "display"
+      if ((message.length() > 1) && ((timeStr[4] == '0') || (timeStr[4] == '5'))) {
+        matrix.setTextColor(matrix.Color(colorMsgR, colorMsgG, colorMsgB));
+        matrix.print(message);
+        // printf("message %s\n", message.c_str());
+      }
+      else {   
+        matrix.setTextColor(matrix.Color(colorR, colorG, colorB));
+        matrix.print(timeStr);
+        // printf("time %s %c\n", timeStr.c_str(), timeStr[4]);
+      }
       matrix.show();
     }
   }
+
+  void SetDisplay(String messageIn) {
+      printf("setting message to: ", messageIn.c_str());
+      if (messageIn.length() > 5) {
+        message = messageIn.substring(0,5);
+      }
+      else {
+        message = messageIn;
+      }
+  }
+
 
   size_t getColor() {
     return color;
   }
 
-  void setColor(size_t newColor) {
+  void setColor(size_t newColor, size_t newMsgColor) {
 
     color = newColor;
 
@@ -262,8 +252,37 @@ public:
       colorG = Colors[COL_WHITE][COL_G];
       colorB = Colors[COL_WHITE][COL_B];
     }
-  }
 
+    colorMsg = newMsgColor;
+
+    if (colorMsg == RANDOM_COLOR) {
+
+      colorMsgR = random(100);
+      colorMsgG = random(100);
+      colorMsgB = random(100);
+
+      // prefer 1 color
+      int tint = random(3);
+      if (tint == 0) {
+        colorMsgR = 2 * colorMsgR;
+      } else if (tint == 1) {
+        colorMsgG = 2 * colorMsgG;
+      } else if (tint == 2) {
+        colorMsgB = 2 * colorMsgB;
+      }
+
+    } else if (colorMsg < NUM_COLORS) {
+      colorMsgR = Colors[colorMsg][COL_R];
+      colorMsgG = Colors[colorMsg][COL_G];
+      colorMsgB = Colors[colorMsg][COL_B];
+    } else {
+      colorMsgR = Colors[COL_WHITE][COL_R];
+      colorMsgG = Colors[COL_WHITE][COL_G];
+      colorMsgB = Colors[COL_WHITE][COL_B];
+    }
+  }
+  
+#if 0
   void Next(int msWaitIn, Adafruit_NeoPixel& strip) {
     UpdTime(msWaitIn);
     // hour in 12 format
@@ -316,7 +335,7 @@ public:
     // now show it
     strip.show();
   }
-
+#endif
   void SetTime(bool skipSeconds) {
     time_t rawtime;
     struct tm* timeinfo;
@@ -407,6 +426,10 @@ private:
   int colorR;
   int colorG;
   int colorB;
+  size_t colorMsg;
+  int colorMsgR;
+  int colorMsgG;
+  int colorMsgB;
 
   int hour;
   int minute;
@@ -414,7 +437,7 @@ private:
   float fraction;
   float factor;
   int timeZone;
-
+  String message;
   // bool hadAlert;
 };
 
@@ -650,20 +673,30 @@ private:
 //
 
 // config page
-String hwDeviceType = "AXCLOCK";
-String firmwareVersion = "5.2";
-
-//
-//   WIFI stuff ... we make it global
-//
-//
-//   another part of spaghetti code
-//    wifi config mode
-//
-
+ConfigParams* configParams = NULL;
+WifiGetter* wifiHandler = NULL;
 bool refreshProxy = true;
-WifiGetter* getter = NULL;
-String hardwareDeviceID = "empty";
+
+String hwDeviceType = "AXCLOCK";
+String firmwareVersion = "6.1";
+
+String deviceID = "empty";
+String hardwareDeviceID ="empty";
+
+// this is specific for each gadget and needs to be called to init the data reader
+ConfigParams* GetConfigParameters (String devicetype, String deviceid) {
+    if (configParams) {
+        //delete configParams;
+        return configParams;
+    }
+     
+    configParams = new ConfigParams();
+    // this is common for all boards 
+    AddWifiParams(configParams, devicetype, deviceid);
+
+    return configParams;
+}
+
 
 
 //
@@ -696,18 +729,18 @@ bool hadAlert = false;
 void setGlobals() {
 
   // we will move this later ... just somewhere else
-  ConfigData* wifiData = new ConfigData();
+  ConfigParams* configParamsSet = GetConfigParameters (hwDeviceType, hardwareDeviceID);
 
   printf("setGlobals: init\n");
   // digitalWrite(ERROR_PIN,HIGH);
 
-  if (getter == NULL) {
-    getter = new WifiGetter(wifiData->getWifiSid(),
-                            wifiData->getWifiPassword(),
-                            wifiData->getValue("redirectwebserver"),
-                            wifiData->getValue("redirectwebserverport").toInt(),
-                            wifiData->getValue("redirectwebserverpage"),
-                            wifiData->getValue("redirectwebserversecret"));
+  if (wifiHandler == NULL) {
+    wifiHandler = new WifiGetter(configParamsSet->GetValue(WIFI_SSID),
+                            configParamsSet->GetValue(WIFI_PASS),
+                            configParamsSet->GetValue(WIFI_REDIRECTURL),
+                            configParamsSet->GetValue(WIFI_REDIRECTUSER),
+                            configParamsSet->GetValue(WIFI_REDIRECTSECRET),
+                            configParamsSet->GetValue(WIFI_URL));
   }
 
 
@@ -715,11 +748,13 @@ void setGlobals() {
   //  base64 encoded user:password
   //
 
-  // This will send the request to the server
-  String httpGetRequest = String("/params_") + hwDeviceType + String("_") + wifiData->getWifiDeviceId() + String(".html HTTP/1.1\r\n") + String("Host: ") + getter->GetRealIP() + String("\r\n") + String("Authorization: Basic ") + wifiData->getValue("redirectwebserversecret") + String("\r\n\r\n");
+
+ String  httpGetRequest = String("/params_") + hwDeviceType + String("_") + configParamsSet->GetValue(WIFI_DEVICE_ID) + String(".html HTTP/1.1\r\n") +
+               String("Host: ") + wifiHandler->GetRealIP() + String("\r\n") + 
+               String("Authorization: Basic ") + Base64Encode(configParamsSet->GetValue(WIFI_URLUSER), configParamsSet->GetValue(WIFI_URLSECRET)) + String("\r\n\r\n");
 
   String line;
-  if (getter->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
+  if (wifiHandler->sendHttpGetRequest(httpGetRequest, line, refreshProxy)) {
     /*
     printf("-------------------\n");
     printf("request:\n%s\n", httpRequest.c_str());
@@ -728,29 +763,29 @@ void setGlobals() {
     printf("-------------------\n");
 */
     if (line.length() > 500) {
-      String newTimezone = getter->parseHtml(line, String("timezone"), oldTimezone);
-      String newClockColor = getter->parseHtml(line, String("clock_color"), oldClockColor);
-      String newMsgColor = getter->parseHtml(line, String("msg_color"), oldMsgColor);
+      String newTimezone = wifiHandler->parseHtml(line, String("timezone"), oldTimezone);
+      String newClockColor = wifiHandler->parseHtml(line, String("clock_color"), oldClockColor);
+      String newMsgColor = wifiHandler->parseHtml(line, String("msg_color"), oldMsgColor);
 
-      String newBrightness = getter->parseHtml(line, String("brightness"), oldBrightness);
-      String newMsgLoops = getter->parseHtml(line, String("msg_loops"), oldMsgLoops);
-      //String newMsgTime = getter->parseHtml(line, String("msg_time"), oldMsgTime);
+      String newBrightness = wifiHandler->parseHtml(line, String("brightness"), oldBrightness);
+      String newMsgLoops = wifiHandler->parseHtml(line, String("msg_loops"), oldMsgLoops);
+      //String newMsgTime = wifiHandler->parseHtml(line, String("msg_time"), oldMsgTime);
 
-      String newAlertTime = getter->parseHtml(line, String("alert_time"), oldAlertTime);
-      String newAlert = getter->parseHtml(line, String("alert"), oldAlert);
+      String newAlertTime = wifiHandler->parseHtml(line, String("alert_time"), oldAlertTime);
+      String newAlert = wifiHandler->parseHtml(line, String("alert"), oldAlert);
 
-      String newMessage = getter->parseHtml(line, String("message"), oldMessage);
+      String newMessage = wifiHandler->parseHtml(line, String("message"), oldMessage);
 
       // printf("new: %s %s %s\n",newMode, newStart, newWheels);
-#if 0    
+
       // mode is switched my new string
-      String newMode = getter->parseHtml(line,String("mode"),oldMode);
+      String newMode = wifiHandler->parseHtml(line,String("mode"),oldMode);
+
       if (newMode != oldMode) {
         oldMode = newMode;
         mode = newMode;
-        printf("setting mode to %s\n",mode);
+        printf("setting mode to %s\n",mode.c_str());
       }
-#endif
 
       if (newTimezone != oldTimezone) {
         oldTimezone = newTimezone;
@@ -801,7 +836,7 @@ void setGlobals() {
       }
 #if 0
       // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
-      if (newMsgTime != oldMsgTime) {
+      if (newMsgTime != oldMsgTime)) {
         oldMsgTime = newMsgTime;
         // printf("old: %s new: %s\n",oldMsgTime.c_str(),newMsgTime.c_str() );
         if ((oldMsgTime > "220221200911") && (oldMsgTime < "420221200911")) {
@@ -839,8 +874,9 @@ void setGlobals() {
       if (newMessage != oldMessage) {
         oldMessage = newMessage;
         printf("setting message to %s\n", oldMessage.c_str());
-        if (msgCount > 0) {
+        if ((msgCount > 0) && (mode == "CLOCK")) {
           mode = "MESSAGE";
+          oldMode == mode;
           printf("setting mode to MESSAGE\n");
         }
         msgCount++; 
@@ -940,6 +976,7 @@ void loop() {
   // wasn dasn ?? scrolling .... could be nice we will see
   matrix.setTextWrap(false);
 
+  ConfigParams* configParamsConf = GetConfigParameters (hwDeviceType, hardwareDeviceID);
 
   //   15 sec intro
   //printf("intro run\n");
@@ -948,22 +985,19 @@ void loop() {
 
     printf("intro \n");
 
-    ConfigData* wifiData = new ConfigData();
-
     matrix.fillScreen(0);
     matrix.setCursor(0, 0);
     // for configuration give a different text
     if (configMode) {
+      
       matrix.setTextColor(matrix.Color(Colors[COL_WHITE][COL_R], Colors[COL_WHITE][COL_G], Colors[COL_WHITE][COL_B]));
       matrix.print("SETUP");
     } else {
       matrix.setTextColor(matrix.Color(Colors[COL_WHITE][COL_R], Colors[COL_WHITE][COL_G], Colors[COL_WHITE][COL_B]));
-      String initStr = ":" + wifiData->getWifiDeviceId();
+      String initStr = ":" + configParamsConf->GetValue(WIFI_DEVICE_ID);
       matrix.print(initStr.c_str());
     }
     matrix.show();
-
-    delete wifiData;
 
     printf("done show\n");
     delay(2000);  // wait 5 secs for next loop
@@ -976,9 +1010,8 @@ void loop() {
     printf("enter config mode\n");
     // create nec config instance and
     // open access point
-    ConfigData* confData = new ConfigData();
-    WifiConfigWebserver* configServer = new WifiConfigWebserver(confData, hardwareDeviceID, hwDeviceType);
-    configServer->runAcessPoint();  // this does not return
+    WifiConfigWebserver* configServer = new WifiConfigWebserver(configParamsConf, hardwareDeviceID, hwDeviceType);
+    configServer->runAcessPoint(); // this does not return
   } else {
     setGlobals();
     matrix.setBrightness(brightness);  // Set BRIGHTNESS (max = 255)
@@ -1023,27 +1056,32 @@ void loop() {
             }
           }
         }
-      } else if (mode == "CLOCK") {
+      } else if ((mode == "CLOCK") || (mode == "CLOCKDISPLAY")) {
         loops = 0;
         printf("start ledClock\n");
         // clock
         //  1: number LEDs to use
         //  2: seconds leave trace
-        LedClock ledClock(LED_COUNT, timezone, true, clockColor);
+        LedClock ledClock(LED_COUNT, timezone, true, clockColor, msgColor);
 
-        while (mode == "CLOCK") {
+        while ((mode == "CLOCK") || (mode == "CLOCKDISPLAY")) {
           // wait 1/10 sec
           delay(delayMs);
           ledClock.Next(delayMs, matrix);
           loops++;
           if ((loops % 3000) == 0) {
             setGlobals();
+            if (mode == "CLOCKDISPLAY") {
+                ledClock.SetDisplay(oldMessage);
+            } else {
+                ledClock.SetDisplay("");
+            }
             if (matrix.getBrightness() != brightness) {
               matrix.setBrightness(brightness);
             }
             //if (ledClock.getColor() != clockColor) {
             //  using RANDOM_COLOR allow to to change every 5-6 minutes
-            ledClock.setColor(clockColor);
+            ledClock.setColor(clockColor, msgColor);
             //}
           }
           if ((loops % 300) == 0) {
