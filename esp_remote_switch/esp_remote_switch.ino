@@ -1,52 +1,21 @@
 
-// #include <Arduino.h>
-#include "SPI.h"
-#include "esp_wifi.h"
+// must have for external includes and some other stuff
+// pinout check https://lastminuteengineers.com/esp8266-pinout-reference/
+#include "Arduino.h"
 
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-
-#include <driver/adc.h>
 #include <ArduinoUniqueID.h>
 
-#include "EmonLib.h"
-
 // include the webserver module / class
-#include "../config/config_esp_32.h"
+#include "config/config_esp_8266.h"
 
-
-#define ADC_INPUT_1 34
-#define ADC_INPUT_2 35
-#define ADC_INPUT_3 32
-#define ADC_INPUT_4 33
-
-#define ADC_OUTPUT_1 19
-#define ADC_OUTPUT_2 18
-#define ADC_OUTPUT_3 5
-#define ADC_OUTPUT_4 17
-
-
-// Force EmonLib to use 10bit ADC resolution
-#define ADC_BITS    10
-#define ADC_COUNTS  (1<<ADC_BITS)
-
+#define ADC_OUTPUT_1 4
+#define ADC_OUTPUT_2 12
+#define ADC_OUTPUT_3 13
+#define ADC_OUTPUT_4 15
 
 #define LED_PIN 14
 #define ERROR_PIN 12
-#define SWITCH_PIN 26
-#define MAX_READ 10
-
-// we have 4 channels to read, let us hope it is this simple
-EnergyMonitor emon1;
-EnergyMonitor emon2;
-EnergyMonitor emon3;
-EnergyMonitor emon4;
-
-// actuals
-double amps1 = 0.0;
-double amps2 = 0.0;
-double amps3 = 0.0;
-double amps4 = 0.0;
+#define SWITCH_PIN 5 // attention this is different because 
 
 // switches
 String switch1 = "ON";
@@ -63,10 +32,8 @@ String switch4 = "ON";
 ConfigParams* configParams = NULL;
 WifiGetter* wifiHandler = NULL;
 String idStr = "";
-String typeStr = "AXAMPSWITCH";
+String typeStr = "AXSWITCH";
 bool refreshProxy = true;
-#define SENSOR_OFFSET "sensoroffset"
-#define SENSOR_FACTOR "sensorfactor"
 #define SWITCH_OFF_SECRET "switchoffsecret"
 
 
@@ -80,8 +47,6 @@ ConfigParams* GetConfigParameters (String devicetype, String deviceid) {
     // this is common for all boards 
     AddWifiParams(configParams, devicetype, deviceid);
     // special parameters
-    configParams->AddParam(SENSOR_OFFSET, "Sensor-Offset", "0.0");
-    configParams->AddParam(SENSOR_FACTOR, "Sensor-Factor", "1.0");
     configParams->AddParam(SWITCH_OFF_SECRET, "Switch-Off-Secret", "OFF");
     // return
     return configParams;
@@ -117,21 +82,14 @@ void setGlobals() {
   if (configParams->GetBoolValue(WIFI_POST)) {
       httpRequest = String("device_type ") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("\r\n")
              + String("device_id ") + configParams->GetValue(WIFI_DEVICE_ID) + String("\r\n")
-             + String("amps1_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps1,4) + String("\r\n")
-             + String("amps2_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps2,4) + String("\r\n")
-             + String("amps3_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps3,4) + String("\r\n")
-             + String("amps4_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + String(amps4,4) + String("\r\n")
              + String("switch1_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + switch1 + String("\r\n")
              + String("switch2_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + switch2 + String("\r\n")
              + String("switch3_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + switch3 + String("\r\n")
              + String("switch4_") + configParams->GetValue(WIFI_DEVICE_ID) + String(" ") + switch4 + String("\r\n");
   }
   else {
-      httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID)
-             + String("&amps1=") + String(amps1,4) 
-             + String("&amps2=") + String(amps2,4)
-             + String("&amps3=") + String(amps3,4) 
-             + String("&amps4=") + String(amps4,4);
+      httpRequest = String("/set?device_type=") + configParams->GetValue(WIFI_DEVICE_TYPE) + String("&device_id=") + configParams->GetValue(WIFI_DEVICE_ID);
+             //+ String("&amps4=") + String(amps4,4);
              // do NOT set the switches
   }
 
@@ -198,6 +156,17 @@ void setGlobals() {
 //
 void setup() {
 
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(ERROR_PIN, OUTPUT);
+  pinMode(SWITCH_PIN, INPUT);
+  pinMode(ADC_OUTPUT_1, OUTPUT);
+  pinMode(ADC_OUTPUT_2, OUTPUT);
+  pinMode(ADC_OUTPUT_3, OUTPUT);
+  pinMode(ADC_OUTPUT_4, OUTPUT);
+  digitalWrite(ADC_OUTPUT_1, HIGH);
+  digitalWrite(ADC_OUTPUT_2, HIGH);
+  digitalWrite(ADC_OUTPUT_3, HIGH);
+  digitalWrite(ADC_OUTPUT_4, HIGH);
   
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -210,46 +179,13 @@ void setup() {
   }
 
   printf("\n---------------------------------------------------------------\n");
-  printf("        AX WIFI Amperemeter and Switch, Version 1.0 \n");
+  printf("        AX WIFI Switch, Version 1.0 \n");
   printf("        Id %s\n",idStr.c_str());
   printf("---------------------------------------------------------------\n");
 
   Serial.println("init");
 
-  pinMode(LED_PIN, OUTPUT);
-  pinMode(ERROR_PIN, OUTPUT);
-  pinMode(SWITCH_PIN, INPUT);
-  pinMode(ADC_OUTPUT_1, OUTPUT);
-  pinMode(ADC_OUTPUT_2, OUTPUT);
-  pinMode(ADC_OUTPUT_3, OUTPUT);
-  pinMode(ADC_OUTPUT_4, OUTPUT);
-  digitalWrite(ADC_OUTPUT_1, HIGH);
-  digitalWrite(ADC_OUTPUT_2, HIGH);
-  digitalWrite(ADC_OUTPUT_3, HIGH);
-  digitalWrite(ADC_OUTPUT_4, HIGH);
-
   delay(100);
-
-  
-/* error  handling of wifi init, left in for reference
-  wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
-  ESP_ERROR_CHECK(esp_wifi_init(&wifi_init_config));
-    //esp_err_t esp_wifi_set_ps(wifi_ps_type_t type)  
-  ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-*/
-
-  // this seems not necessary any more even when doc requires it
-  // it causes the esp32 to reset, so not use it for now
-  // adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
- 
-  analogReadResolution(10);
-
-  // Initialize emon library (28-30 = calibration number for 1 = 1A)
-  emon1.current(ADC_INPUT_1, 185.0);
-  emon2.current(ADC_INPUT_2, 185.0);
-  emon3.current(ADC_INPUT_3, 185.0);
-  emon4.current(ADC_INPUT_4, 185.0);
-  // 1600W calibr 68 = 6.8 A = 285.0 cal
 
   digitalWrite(ERROR_PIN, HIGH);  
   digitalWrite(LED_PIN, LOW);
@@ -290,8 +226,6 @@ void loop() {
     setGlobals();
 
     // double factor
-    double sensorOffset = configParams->GetValue(SENSOR_OFFSET).toDouble();
-    double sensorFactor = configParams->GetValue(SENSOR_FACTOR).toDouble();
     String offSetting = configParams->GetValue(SWITCH_OFF_SECRET);
 
     digitalWrite(LED_PIN, LOW);
@@ -303,14 +237,6 @@ void loop() {
     digitalWrite(LED_PIN, HIGH);
     delay(100);
     digitalWrite(LED_PIN, LOW);
-
-
-    unsigned long currentMillis = millis();
-  
-    // If it's been longer then 1000ms since we took a measurement, take one now!
-    // if(currentMillis - lastMeasurement > 1000){
-    //   nada nada nada jada
-    //   some code for later to make it real one minute or something
     
     int loops = 0;
     
@@ -320,32 +246,6 @@ void loop() {
       delay (1000);
       
       Serial.println("lesen");
-
-      int MAGIC=1480;
-
-      // we read several times and use the average value
-      amps1 = (emon1.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
-      amps2 = (emon2.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
-      amps3 = (emon3.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
-      amps4 = (emon4.calcIrms(MAGIC) * sensorFactor) - sensorOffset; // Calculate Irms only with magic number
-      
-      size_t i;
-      for (i=1;i<MAX_READ;i++) {
-        Serial.print(".");
-        delay(20);
-        amps1 += (emon1.calcIrms(MAGIC) * sensorFactor) - sensorOffset; 
-        amps2 += (emon2.calcIrms(MAGIC) * sensorFactor) - sensorOffset;
-        amps3 += (emon3.calcIrms(MAGIC) * sensorFactor) - sensorOffset;
-        amps4 += (emon4.calcIrms(MAGIC) * sensorFactor) - sensorOffset;
-      }
-      amps1 = amps1 / ((double) MAX_READ);
-      amps2 = amps2 / ((double) MAX_READ);
-      amps3 = amps3 / ((double) MAX_READ);
-      amps4 = amps4 / ((double) MAX_READ);
-
-      // just make some noise
-      //Serial.println("+");   
-      printf("werte:\n 1:%f\n2: %f\n3: %f\n4: %f\n", amps1, amps2, amps3, amps4);
 
       // switch the relais
       // default is on, only off when the sprecial string is set
